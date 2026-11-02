@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Whole-file SHA-256</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-009.html" accesskey="n" rel="next">DNG encoded raw blocks</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-007.html" accesskey="p" rel="previous">The identities</a>
+</span>
+</div>
+</nav>
+<h1 data-number="7" id="whole-file-sha-256"><span
+class="header-section-number">7</span> Whole-file SHA-256</h1>
+<h2 data-number="7.1" id="what-goes-in"><span
+class="header-section-number">7.1</span> What goes in</h2>
+<p>Every byte of the file, in order, through SHA-256. The value is 64
+lower-case hex digits. It is always computed.</p>
+<h2 data-number="7.2" id="what-equality-proves"><span
+class="header-section-number">7.2</span> What equality proves</h2>
+<p>Equal values mean the two files are byte-for-byte identical, up to
+the collision resistance of SHA-256. Nothing else in phidentify is this
+strong.</p>
+<h2 data-number="7.3" id="what-it-does-not-prove"><span
+class="header-section-number">7.3</span> What it does not prove</h2>
+<p>It does not say anything useful about files that differ. A changed
+rating, a rewritten preview or one flipped byte of padding all change
+it, and it cannot tell those apart from a different photograph. File
+names, dates, permissions and extended attributes are not part of
+it.</p>
+<h2 data-number="7.4" id="when-to-use-it"><span
+class="header-section-number">7.4</span> When to use it</h2>
+<p>Use it when the question is about bytes: is this backup copy exact,
+did the copy across a network or onto a portable drive arrive intact, is
+this the file I recorded last year.</p>
+<h2 data-number="7.5" id="reporting"><span
+class="header-section-number">7.5</span> Reporting</h2>
+<p>There is no not-applicable case. If the SHA-256 cannot be computed,
+the file cannot be identified at all, and the whole call fails: the Rust
+<code>identify</code> returns <code>Err</code>, the OCaml functions
+return <code>Error reason</code>, the C ABI returns status 1, and the
+command prints <code>path</code>, then <code>!reason</code>. The call
+also fails if the path is not a regular file (symbolic links are
+refused) or if the file changes while it is read.</p>
+<p>The change check uses a <strong>stamp</strong> taken before and after
+identification: size, modification time, change time and inode. The
+device number is recorded but left out of the comparison, because it
+changes when a volume is remounted. The stamp is returned in the Rust
+<code>Identity</code>.</p>
+<h2 data-number="7.6" id="cost"><span
+class="header-section-number">7.6</span> Cost</h2>
+<p>One sequential read of the file and one SHA-256 pass. Files up to 1
+GiB are read once into memory, and every other identity is computed from
+those same bytes. Larger files are hashed in 4 MiB chunks and get only
+this identity.</p>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Lightroom Classic original fingerprint</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-011.html" accesskey="n" rel="next">Metadata record</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-009.html" accesskey="p" rel="previous">DNG encoded raw blocks</a>
+</span>
+</div>
+</nav>
+<h1 data-number="9" id="lightroom-classic-original-fingerprint"><span
+class="header-section-number">9</span> Lightroom Classic original
+fingerprint</h1>
+<h2 data-number="9.1" id="what-it-is"><span
+class="header-section-number">9.1</span> What it is</h2>
+<p>Lightroom Classic stores a fingerprint of each original file in its
+catalog, in the <code>digest</code> column of the
+<code>AgLibraryFileDigest</code> table. phidentify computes that value
+for the DNGs it supports, so that a file can be checked against the
+catalog without Lightroom.</p>
+<p>It is an <strong>independent reimplementation</strong>. It contains
+no Adobe code, and it was qualified only by comparing its output with
+values Lightroom Classic itself had stored.</p>
+<h2 data-number="9.2" id="what-goes-in-2"><span
+class="header-section-number">9.2</span> What goes in</h2>
+<p>At the level the source shows, the fingerprint has two layers:</p>
+<ol type="1">
+<li><strong>A raw-image digest.</strong> The raw samples are decoded
+with rawler, before linearization, without camera crop or any rendering.
+The digest is Adobe’s NewRawImageDigest, the raw-image digest the DNG
+specification defines, recomputed here from the decoded samples: the
+samples are cut into tiles, each tile is hashed with MD5, and the tile
+digests are hashed again with MD5.</li>
+<li><strong>A wrapper.</strong> That raw digest is wrapped, again with
+MD5, together with streams that describe how the image is framed: the
+camera model, the default crop size and origin, the user crop when there
+is one, and a fingerprint stream of the raw image’s opcode lists.</li>
+</ol>
+<p>The result is 32 upper-case hex digits, as Classic stores it.</p>
+<p>The Rust module also exposes <code>lightroom::compute(path)</code>,
+which returns the intermediate values: the raw-image digest, a SHA-256
+of the wrapper inputs, and the engine revision name,
+<code>native-original-digest-v5</code>. Those are for diagnosis; the
+identity is the final digest.</p>
+<h2 data-number="9.3" id="supported-strata"><span
+class="header-section-number">9.3</span> Supported strata</h2>
+<p>The fingerprint is computed only for DNGs that are:</p>
+<ul>
+<li>integer-sampled,</li>
+<li>single-plane CFA or LinearRaw,</li>
+<li>stored uncompressed or with lossless JPEG compression, in classic
+TIFF rather than BigTIFF,</li>
+<li>with raw-image opcodes limited to the two implemented,
+FixVignetteRadial and FixBadPixelsConstant.</li>
+</ul>
+<p>Every other file is an error with a reason, never a guessed value.
+JPEG files, camera-native raw files and DNG strata outside that list are
+not implemented.</p>
+<h2 data-number="9.4" id="qualification"><span
+class="header-section-number">9.4</span> Qualification</h2>
+<p>On 2026-11-01, 60 randomly chosen DNGs from a Lightroom Classic 15
+catalog were fingerprinted. All 60 matched the fingerprints Lightroom
+Classic had stored for them.</p>
+<p>That is the whole evidence for this identity. It covers the strata
+above, as Lightroom Classic 15 computed them. Extending the fingerprint
+to another format needs native values from Lightroom for that format
+first.</p>
+<h2 data-number="9.5" id="what-equality-proves-2"><span
+class="header-section-number">9.5</span> What equality proves</h2>
+<p>An equal digest means Lightroom Classic’s original matcher would pair
+the two files, or would accept the file as the original a catalog entry
+recorded. Compare it together with the file size, which Classic stores
+beside it.</p>
+<h2 data-number="9.6" id="what-it-does-not-prove-2"><span
+class="header-section-number">9.6</span> What it does not prove</h2>
+<p>It is native-matcher correspondence, not byte equality and not pixel
+equality. Two files with equal fingerprints can differ in metadata,
+previews and layout. MD5 is used because that is what Lightroom uses;
+the value is a compatibility identity, not a cryptographic one, and
+should not be relied on against deliberately crafted files.</p>
+<h2 data-number="9.7" id="when-to-use-it-2"><span
+class="header-section-number">9.7</span> When to use it</h2>
+<p>Use it to check a file against a Lightroom Classic catalog: is this
+the original the catalog thinks it is, which file on disk does this
+catalog entry correspond to, did a restore bring back the file Classic
+expects. Read the catalog’s stored values from a copy, never from a
+catalog Classic has open, and never write them.</p>
+<h2 data-number="9.8" id="reporting-2"><span
+class="header-section-number">9.8</span> Reporting</h2>
+<p>The fingerprint is attempted only when it is requested and the file
+parsed as a DNG with a primary raw image, the same gate as the raw-block
+identity. Otherwise it is not attempted (<code>None</code>,
+<code>Not_attempted</code>, <code>-</code>).</p>
+<p>When attempted, it fails with a reason for any unsupported stratum,
+malformed metadata, a decoder error, decoded dimensions that disagree
+with the raw directory, or a change to the file while it is read. A
+library built without the <code>lightroom</code> feature reports
+<code>built without the lightroom feature</code> as a failure for every
+DNG.</p>
+<h2 data-number="9.9" id="cost-2"><span
+class="header-section-number">9.9</span> Cost</h2>
+<p>The most expensive identity by far. It reads the file again from its
+path and fully decodes the raw image, so it costs CPU in proportion to
+the sensor size and holds the decoded samples in memory, two bytes per
+sample. Request it only when the question is about Lightroom.</p>
+</body>
+</html>

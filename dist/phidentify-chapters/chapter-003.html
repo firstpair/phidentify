@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>What phidentify is</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-004.html" accesskey="n" rel="next">Architecture</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-002.html" accesskey="p" rel="previous">About this manual</a>
+</span>
+</div>
+</nav>
+<h1 data-number="2" id="what-phidentify-is"><span
+class="header-section-number">2</span> What phidentify is</h1>
+<p>“Are these two photos the same?” has no single answer. Two files can
+hold the same bytes, or the same encoded raw data with different
+keywords, or different bytes that Lightroom Classic would still accept
+as the same original. A whole-file checksum answers the first question
+and is silent on the others. A metadata comparison answers a fourth
+question and says nothing about pixels.</p>
+<p>phidentify computes several <strong>named identities</strong> for a
+photo file, each answering one question:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Identity</th>
+<th>Rust field</th>
+<th>OCaml field</th>
+<th>Equal values mean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whole-file SHA-256</td>
+<td><code>sha256</code></td>
+<td><code>sha256</code></td>
+<td>every byte is equal</td>
+</tr>
+<tr>
+<td>DNG encoded raw blocks</td>
+<td><code>dng_raw_blocks_sha256</code></td>
+<td><code>dng_raw_blocks</code></td>
+<td>the same encoded primary raw data, under the same encoding tags</td>
+</tr>
+<tr>
+<td>Lightroom Classic original fingerprint</td>
+<td><code>lightroom_digest</code></td>
+<td><code>lightroom</code></td>
+<td>Lightroom Classic’s original matcher would pair the files</td>
+</tr>
+<tr>
+<td>Metadata record</td>
+<td><code>metadata_digest</code></td>
+<td><code>metadata</code></td>
+<td>equal exiftool-rs metadata records, file location left out</td>
+</tr>
+<tr>
+<td>Preserved (complement) digest</td>
+<td><code>preserved_sha256</code></td>
+<td><code>preserved</code>, with <code>dng_semantic</code></td>
+<td>every byte outside the primary XMP packet is equal, at the same size
+and layout</td>
+</tr>
+</tbody>
+</table>
+<p>Three rules hold for every identity, in every interface:</p>
+<ol type="1">
+<li><strong>They are separate.</strong> One identity never stands in for
+another. Equal raw blocks are not equal bytes; an equal Lightroom
+fingerprint is not equal pixels; an equal metadata record says nothing
+about image data.</li>
+<li><strong>A missing identity is not a match.</strong> An identity that
+was not requested, does not apply to the file, or failed, is reported as
+such. Two files that both failed an identity have not matched on
+it.</li>
+<li><strong>Every value comes from one consistent read.</strong>
+phidentify checks that the file did not change while it was identified.
+If it did, the whole result is an error.</li>
+</ol>
+<h2 data-number="2.1" id="where-it-fits"><span
+class="header-section-number">2.1</span> Where it fits</h2>
+<p>phidentify is one of three sister projects that grew out of the same
+photo-archive work. Each owns a different piece.</p>
+<ul>
+<li><strong><a
+href="https://github.com/firstpair/dng-compare">dng-compare</a></strong>
+compares DNG archives: it pairs files across two trees, compares their
+raw samples, decodes when encodings differ, reports metadata
+differences, and preserves exact older versions as originals or verified
+deltas. phidentify’s raw-block identity is dng-compare’s
+<code>dng-subset</code> block comparison turned into a digest, and its
+metadata identity uses dng-compare’s exiftool-rs engine. Its manual is
+on the <a href="https://firstpair.org/books/dng-compare/">First Pair
+shelf</a>.</li>
+<li><strong><a
+href="https://github.com/firstpair/tiffgraph">tiffgraph</a></strong> is
+a pure-OCaml, bounded TIFF/DNG graph walker for stock OCaml and OxCaml.
+Under a fixed grammar it finds a DNG’s primary XMP packet, checks that
+nothing else the file declares lies inside it, and refuses anything
+outside the grammar with a reason. phidentify uses it to locate the
+region the preserved digest leaves out. Its manual is on the <a
+href="https://firstpair.org/books/tiffgraph/">First Pair shelf</a>.</li>
+<li><strong><a
+href="https://github.com/querygraph/semantic-unison">Semantic
+Unison</a></strong> is a fork of the Unison file synchronizer that
+synchronizes DNG metadata separately from image bytes. Peers negotiate
+which tiffgraph grammar they trust, as the profiles
+<code>org.firstpair.dng-xmp/0</code>, <code>/1</code> and
+<code>/2</code>, and Unison owns the <code>SDE/0</code> definitions and
+proofs that a metadata transfer left every other byte alone. phidentify
+reproduces Unison’s <code>SDE/0-preserved</code> hash so that an index
+built outside Unison speaks the same identity. Its manual is on the <a
+href="https://firstpair.org/books/semantic-unison/">First Pair
+shelf</a>.</li>
+</ul>
+<p>phidentify itself computes identities and nothing else. It does not
+compare trees, write files, touch catalogs, or synchronize anything.</p>
+<h2 data-number="2.2" id="what-it-is-not"><span
+class="header-section-number">2.2</span> What it is not</h2>
+<ul>
+<li><strong>Not a rendering identity.</strong> No identity here says
+that two files look the same after processing. Crop, white balance,
+profiles and develop settings live in metadata, and the raw-data
+identities ignore them.</li>
+<li><strong>Not a decoded-pixel identity</strong>, except inside the
+Lightroom fingerprint, which decodes for its own purpose and reports
+only Lightroom’s value.</li>
+<li><strong>Not a validator.</strong> A file that yields every identity
+is not thereby a correct DNG.</li>
+<li><strong>Not Lightroom.</strong> The Lightroom fingerprint is an
+independent reimplementation, qualified against values Lightroom Classic
+stored. It does not call Adobe code.</li>
+</ul>
+</body>
+</html>

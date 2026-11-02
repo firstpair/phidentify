@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>phidentify</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+</span>
+<span class="navlink">
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-001.html" accesskey="n" rel="next">phidentify</a>
+</span>
+<span class="navlink">
+</span>
+</div>
+</nav>
+<header id="title-block-header">
+<h1 class="title">phidentify</h1>
+<p class="subtitle">Fingerprints for photos</p>
+<p class="author">Alexy Khrabrov, with Claude as co-author</p>
+<p class="date">2026-11-02</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="chapter-002.html#about-this-manual"
+id="toc-about-this-manual"><span class="toc-section-number">1</span>
+About this manual</a></li>
+<li><a href="chapter-003.html#what-phidentify-is"
+id="toc-what-phidentify-is"><span class="toc-section-number">2</span>
+What phidentify is</a>
+<ul>
+<li><a href="chapter-003.html#where-it-fits"
+id="toc-where-it-fits"><span class="toc-section-number">2.1</span> Where
+it fits</a></li>
+<li><a href="chapter-003.html#what-it-is-not"
+id="toc-what-it-is-not"><span class="toc-section-number">2.2</span> What
+it is not</a></li>
+</ul></li>
+<li><a href="chapter-004.html#architecture" id="toc-architecture"><span
+class="toc-section-number">3</span> Architecture</a></li>
+<li><a href="chapter-005.html#building" id="toc-building"><span
+class="toc-section-number">4</span> Building</a>
+<ul>
+<li><a href="chapter-005.html#rust" id="toc-rust"><span
+class="toc-section-number">4.1</span> Rust</a></li>
+<li><a href="chapter-005.html#ocaml-and-oxcaml"
+id="toc-ocaml-and-oxcaml"><span class="toc-section-number">4.2</span>
+OCaml and OxCaml</a></li>
+<li><a href="chapter-005.html#memory" id="toc-memory"><span
+class="toc-section-number">4.3</span> Memory</a></li>
+</ul></li>
+<li><a href="chapter-006.html#using-it" id="toc-using-it"><span
+class="toc-section-number">5</span> Using it</a>
+<ul>
+<li><a href="chapter-006.html#rust-1" id="toc-rust-1"><span
+class="toc-section-number">5.1</span> Rust</a></li>
+<li><a href="chapter-006.html#ocaml-and-oxcaml-1"
+id="toc-ocaml-and-oxcaml-1"><span class="toc-section-number">5.2</span>
+OCaml and OxCaml</a></li>
+<li><a href="chapter-006.html#the-phidentify-command"
+id="toc-the-phidentify-command"><span
+class="toc-section-number">5.3</span> The phidentify command</a></li>
+<li><a href="chapter-006.html#the-c-abi" id="toc-the-c-abi"><span
+class="toc-section-number">5.4</span> The C ABI</a></li>
+</ul></li>
+<li><a href="chapter-007.html#the-identities"
+id="toc-the-identities"><span class="toc-section-number">6</span> The
+identities</a></li>
+<li><a href="chapter-008.html#whole-file-sha-256"
+id="toc-whole-file-sha-256"><span class="toc-section-number">7</span>
+Whole-file SHA-256</a>
+<ul>
+<li><a href="chapter-008.html#what-goes-in" id="toc-what-goes-in"><span
+class="toc-section-number">7.1</span> What goes in</a></li>
+<li><a href="chapter-008.html#what-equality-proves"
+id="toc-what-equality-proves"><span
+class="toc-section-number">7.2</span> What equality proves</a></li>
+<li><a href="chapter-008.html#what-it-does-not-prove"
+id="toc-what-it-does-not-prove"><span
+class="toc-section-number">7.3</span> What it does not prove</a></li>
+<li><a href="chapter-008.html#when-to-use-it"
+id="toc-when-to-use-it"><span class="toc-section-number">7.4</span> When
+to use it</a></li>
+<li><a href="chapter-008.html#reporting" id="toc-reporting"><span
+class="toc-section-number">7.5</span> Reporting</a></li>
+<li><a href="chapter-008.html#cost" id="toc-cost"><span
+class="toc-section-number">7.6</span> Cost</a></li>
+</ul></li>
+<li><a href="chapter-009.html#dng-encoded-raw-blocks"
+id="toc-dng-encoded-raw-blocks"><span
+class="toc-section-number">8</span> DNG encoded raw blocks</a>
+<ul>
+<li><a href="chapter-009.html#what-goes-in-1"
+id="toc-what-goes-in-1"><span class="toc-section-number">8.1</span> What
+goes in</a></li>
+<li><a href="chapter-009.html#what-equality-proves-1"
+id="toc-what-equality-proves-1"><span
+class="toc-section-number">8.2</span> What equality proves</a></li>
+<li><a href="chapter-009.html#what-it-does-not-prove-1"
+id="toc-what-it-does-not-prove-1"><span
+class="toc-section-number">8.3</span> What it does not prove</a></li>
+<li><a href="chapter-009.html#when-to-use-it-1"
+id="toc-when-to-use-it-1"><span class="toc-section-number">8.4</span>
+When to use it</a></li>
+<li><a href="chapter-009.html#reporting-1" id="toc-reporting-1"><span
+class="toc-section-number">8.5</span> Reporting</a></li>
+<li><a href="chapter-009.html#cost-1" id="toc-cost-1"><span
+class="toc-section-number">8.6</span> Cost</a></li>
+</ul></li>
+<li><a href="chapter-010.html#lightroom-classic-original-fingerprint"
+id="toc-lightroom-classic-original-fingerprint"><span
+class="toc-section-number">9</span> Lightroom Classic original
+fingerprint</a>
+<ul>
+<li><a href="chapter-010.html#what-it-is" id="toc-what-it-is"><span
+class="toc-section-number">9.1</span> What it is</a></li>
+<li><a href="chapter-010.html#what-goes-in-2"
+id="toc-what-goes-in-2"><span class="toc-section-number">9.2</span> What
+goes in</a></li>
+<li><a href="chapter-010.html#supported-strata"
+id="toc-supported-strata"><span class="toc-section-number">9.3</span>
+Supported strata</a></li>
+<li><a href="chapter-010.html#qualification"
+id="toc-qualification"><span class="toc-section-number">9.4</span>
+Qualification</a></li>
+<li><a href="chapter-010.html#what-equality-proves-2"
+id="toc-what-equality-proves-2"><span
+class="toc-section-number">9.5</span> What equality proves</a></li>
+<li><a href="chapter-010.html#what-it-does-not-prove-2"
+id="toc-what-it-does-not-prove-2"><span
+class="toc-section-number">9.6</span> What it does not prove</a></li>
+<li><a href="chapter-010.html#when-to-use-it-2"
+id="toc-when-to-use-it-2"><span class="toc-section-number">9.7</span>
+When to use it</a></li>
+<li><a href="chapter-010.html#reporting-2" id="toc-reporting-2"><span
+class="toc-section-number">9.8</span> Reporting</a></li>
+<li><a href="chapter-010.html#cost-2" id="toc-cost-2"><span
+class="toc-section-number">9.9</span> Cost</a></li>
+</ul></li>
+<li><a href="chapter-011.html#metadata-record"
+id="toc-metadata-record"><span class="toc-section-number">10</span>
+Metadata record</a>
+<ul>
+<li><a href="chapter-011.html#what-goes-in-3"
+id="toc-what-goes-in-3"><span class="toc-section-number">10.1</span>
+What goes in</a></li>
+<li><a href="chapter-011.html#what-equality-proves-3"
+id="toc-what-equality-proves-3"><span
+class="toc-section-number">10.2</span> What equality proves</a></li>
+<li><a href="chapter-011.html#what-it-does-not-prove-3"
+id="toc-what-it-does-not-prove-3"><span
+class="toc-section-number">10.3</span> What it does not prove</a></li>
+<li><a href="chapter-011.html#when-to-use-it-3"
+id="toc-when-to-use-it-3"><span class="toc-section-number">10.4</span>
+When to use it</a></li>
+<li><a href="chapter-011.html#compact-records-and-diffs"
+id="toc-compact-records-and-diffs"><span
+class="toc-section-number">10.5</span> Compact records and
+diffs</a></li>
+<li><a href="chapter-011.html#reporting-3" id="toc-reporting-3"><span
+class="toc-section-number">10.6</span> Reporting</a></li>
+<li><a href="chapter-011.html#cost-3" id="toc-cost-3"><span
+class="toc-section-number">10.7</span> Cost</a></li>
+<li><a href="chapter-011.html#licence" id="toc-licence"><span
+class="toc-section-number">10.8</span> Licence</a></li>
+</ul></li>
+<li><a href="chapter-012.html#preserved-digest"
+id="toc-preserved-digest"><span class="toc-section-number">11</span>
+Preserved digest</a>
+<ul>
+<li><a href="chapter-012.html#what-it-is-1" id="toc-what-it-is-1"><span
+class="toc-section-number">11.1</span> What it is</a></li>
+<li><a href="chapter-012.html#where-the-region-comes-from"
+id="toc-where-the-region-comes-from"><span
+class="toc-section-number">11.2</span> Where the region comes
+from</a></li>
+<li><a href="chapter-012.html#the-formula" id="toc-the-formula"><span
+class="toc-section-number">11.3</span> The formula</a></li>
+<li><a href="chapter-012.html#cross-check-with-semantic-unison"
+id="toc-cross-check-with-semantic-unison"><span
+class="toc-section-number">11.4</span> Cross-check with Semantic
+Unison</a></li>
+<li><a href="chapter-012.html#what-equality-proves-4"
+id="toc-what-equality-proves-4"><span
+class="toc-section-number">11.5</span> What equality proves</a></li>
+<li><a href="chapter-012.html#what-it-does-not-prove-4"
+id="toc-what-it-does-not-prove-4"><span
+class="toc-section-number">11.6</span> What it does not prove</a></li>
+<li><a href="chapter-012.html#when-to-use-it-4"
+id="toc-when-to-use-it-4"><span class="toc-section-number">11.7</span>
+When to use it</a></li>
+<li><a href="chapter-012.html#reporting-4" id="toc-reporting-4"><span
+class="toc-section-number">11.8</span> Reporting</a></li>
+<li><a href="chapter-012.html#cost-4" id="toc-cost-4"><span
+class="toc-section-number">11.9</span> Cost</a></li>
+</ul></li>
+<li><a href="chapter-013.html#the-identities-side-by-side"
+id="toc-the-identities-side-by-side"><span
+class="toc-section-number">12</span> The identities side by
+side</a></li>
+<li><a href="chapter-014.html#which-identity-answers-which-question"
+id="toc-which-identity-answers-which-question"><span
+class="toc-section-number">13</span> Which identity answers which
+question</a>
+<ul>
+<li><a href="chapter-014.html#is-this-file-in-my-backup"
+id="toc-is-this-file-in-my-backup"><span
+class="toc-section-number">13.1</span> Is this file in my
+backup?</a></li>
+<li><a href="chapter-014.html#was-this-only-a-metadata-edit"
+id="toc-was-this-only-a-metadata-edit"><span
+class="toc-section-number">13.2</span> Was this only a metadata
+edit?</a></li>
+<li><a
+href="chapter-014.html#is-this-still-the-original-my-catalog-recorded"
+id="toc-is-this-still-the-original-my-catalog-recorded"><span
+class="toc-section-number">13.3</span> Is this still the original my
+catalog recorded?</a></li>
+<li><a href="chapter-014.html#did-the-shuttle-copy-arrive-intact"
+id="toc-did-the-shuttle-copy-arrive-intact"><span
+class="toc-section-number">13.4</span> Did the shuttle copy arrive
+intact?</a></li>
+</ul></li>
+<li><a href="chapter-015.html#testing" id="toc-testing"><span
+class="toc-section-number">14</span> Testing</a></li>
+<li><a href="chapter-016.html#licences" id="toc-licences"><span
+class="toc-section-number">15</span> Licences</a></li>
+<li><a href="chapter-017.html#reference" id="toc-reference"><span
+class="toc-section-number">16</span> Reference</a></li>
+</ul>
+</nav>
+
+</body>
+</html>

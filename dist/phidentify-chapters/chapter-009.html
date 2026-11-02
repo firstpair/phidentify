@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>DNG encoded raw blocks</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-010.html" accesskey="n" rel="next">Lightroom Classic original fingerprint</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-008.html" accesskey="p" rel="previous">Whole-file SHA-256</a>
+</span>
+</div>
+</nav>
+<h1 data-number="8" id="dng-encoded-raw-blocks"><span
+class="header-section-number">8</span> DNG encoded raw blocks</h1>
+<h2 data-number="8.1" id="what-goes-in-1"><span
+class="header-section-number">8.1</span> What goes in</h2>
+<p>The encoded primary raw images of a DNG, exactly as stored, without
+decoding. phidentify walks the TIFF or BigTIFF graph: the chain of
+directories from the header and every SubIFD. A directory is a
+<strong>primary raw image</strong> when its NewSubfileType is 0 (or
+absent) and its photometric interpretation is WhiteIsZero, BlackIsZero,
+RGB, CFA or LinearRaw. The file must also carry a DNGVersion tag; a TIFF
+without one is not a DNG.</p>
+<p>For each primary raw image, phidentify takes:</p>
+<ul>
+<li>its <strong>encoding-tag signature</strong>: the byte order, then,
+for each tag present from a fixed list of 30 encoding tags, its number,
+type, count, length and stored value bytes. The list covers dimensions,
+bits and sample format, compression, photometric interpretation, strip
+and tile geometry, the predictor, and the JPEG tables and parameters,
+plus a few DNG encoding tags; it is the <code>ENCODING</code> list in
+<code>dng_blocks.rs</code>;</li>
+<li>its <strong>block counts</strong>: how many strips or tiles, and the
+byte count of each;</li>
+<li>its <strong>block bytes</strong>: the content of every strip or
+tile, in order.</li>
+</ul>
+<p>The digest is SHA-256 over:</p>
+<pre class="text"><code>&quot;PHIDENTIFY-DNG-ENCODED-RAW-BLOCKS-1\0&quot;
+‖ byte-order byte (1 for big-endian)
+‖ u64le number of primary raw images
+‖ for each image, in walk order:
+     u64le signature length ‖ signature
+   ‖ u64le block count
+   ‖ for each block: u64le byte count ‖ block bytes</code></pre>
+<p>The domain string names the definition. If what it covers ever
+changes, the domain string changes with it, because every stored digest
+would change.</p>
+<h2 data-number="8.2" id="what-equality-proves-1"><span
+class="header-section-number">8.2</span> What equality proves</h2>
+<p>Two DNGs have equal raw-block digests exactly when <a
+href="https://github.com/firstpair/dng-compare">dng-compare</a>’s
+<code>dng-subset</code> block comparison finds them equal: the same byte
+order, the same number of primary raw images, and for each image the
+same encoding-tag signature, block counts and block bytes. The stored,
+encoded raw data is the same.</p>
+<h2 data-number="8.3" id="what-it-does-not-prove-1"><span
+class="header-section-number">8.3</span> What it does not prove</h2>
+<ul>
+<li><strong>Not metadata equality.</strong> XMP, keywords, ratings,
+develop settings, Exif fields, maker notes and previews do not enter it.
+Neither do interpretation tags outside the encoding list, such as black
+and white levels, the CFA pattern, linearization tables, color matrices
+and the default crop.</li>
+<li><strong>Not placement.</strong> Block offsets are left out, so a
+file whose blocks moved when its metadata grew keeps the same digest.
+That is the point.</li>
+<li><strong>Not decoded-pixel equality.</strong> The same samples
+re-encoded with different compression, tiling or byte order give a
+different digest. To compare decoded samples across encodings, use
+dng-compare, which decodes when it has to.</li>
+<li><strong>Not rendering equality</strong>, and not Lightroom’s
+fingerprint.</li>
+</ul>
+<h2 data-number="8.4" id="when-to-use-it-1"><span
+class="header-section-number">8.4</span> When to use it</h2>
+<p>Use it to recognize the same raw data under changed metadata: a DNG
+whose keywords were written into the file, a copy whose preview was
+refreshed, a backup taken before a rating changed. A raw-block match
+tells you the photograph’s encoded data is present in both files. It
+does not tell you either file is a complete backup of the other.</p>
+<h2 data-number="8.5" id="reporting-1"><span
+class="header-section-number">8.5</span> Reporting</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Rust</th>
+<th>OCaml</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>not requested</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>-</code></td>
+</tr>
+<tr>
+<td>file does not start with a TIFF header</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>-</code></td>
+</tr>
+<tr>
+<td>file over 1 GiB</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>-</code></td>
+</tr>
+<tr>
+<td>TIFF without DNGVersion or without a primary raw image</td>
+<td><code>Some(Err("No DNG raw image found"))</code></td>
+<td><code>Failed</code></td>
+<td><code>!No DNG raw image found</code></td>
+</tr>
+<tr>
+<td>malformed graph, offsets or blocks outside the file</td>
+<td><code>Some(Err(reason))</code></td>
+<td><code>Failed reason</code></td>
+<td><code>!reason</code></td>
+</tr>
+<tr>
+<td>success</td>
+<td><code>Some(Ok(hex))</code></td>
+<td><code>Ok hex</code></td>
+<td>the digest</td>
+</tr>
+</tbody>
+</table>
+<p>The walk is bounded: at most 4,096 directories, 8,192 entries per
+directory, 16 MiB per selected tag value and a million integers per
+array. A file beyond those bounds fails; it is never truncated into a
+match.</p>
+<h2 data-number="8.6" id="cost-1"><span
+class="header-section-number">8.6</span> Cost</h2>
+<p>Cheap. The walk reads only the directories and the selected tags, and
+the hash reads the raw blocks once, from the bytes already in memory.
+There is no decoding. For a typical DNG the cost is close to one SHA-256
+pass over the raw data.</p>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Preserved digest</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-013.html" accesskey="n" rel="next">The identities side by side</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-011.html" accesskey="p" rel="previous">Metadata record</a>
+</span>
+</div>
+</nav>
+<h1 data-number="11" id="preserved-digest"><span
+class="header-section-number">11</span> Preserved digest</h1>
+<h2 data-number="11.1" id="what-it-is-1"><span
+class="header-section-number">11.1</span> What it is</h2>
+<p>The preserved digest, also called the complement digest, is a hash of
+every byte of a DNG <strong>outside</strong> its primary XMP packet,
+with the file’s size and the packet’s position bound in. Two files with
+equal preserved digests can differ only inside that packet. It is
+Semantic Unison’s <code>SDE/0-preserved</code> hash, which Unison uses
+to prove that a metadata transfer changed nothing else.</p>
+<h2 data-number="11.2" id="where-the-region-comes-from"><span
+class="header-section-number">11.2</span> Where the region comes
+from</h2>
+<p>The region left out is found by <a
+href="https://github.com/firstpair/tiffgraph">tiffgraph</a>.
+phidentify’s OCaml package walks each file with three tiffgraph grammars
+in order, from strictest to most permissive:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Profile reported in <code>dng_semantic</code></th>
+<th>tiffgraph grammar</th>
+<th>Semantic Unison profile</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dng-xmp/0</code></td>
+<td><code>v0</code></td>
+<td><code>org.firstpair.dng-xmp/0</code></td>
+</tr>
+<tr>
+<td><code>dng-xmp/1</code></td>
+<td><code>v1</code></td>
+<td><code>org.firstpair.dng-xmp/1</code></td>
+</tr>
+<tr>
+<td><code>dng-xmp/2</code></td>
+<td><code>merge_only</code></td>
+<td><code>org.firstpair.dng-xmp/2</code></td>
+</tr>
+</tbody>
+</table>
+<p>The first grammar that accepts the file wins, and its name is
+recorded in <code>dng_semantic</code>. Accepting the file means
+tiffgraph found the primary XMP packet and checked that no other extent
+the file declares lies inside it. The maximum packet size accepted is 1
+MiB.</p>
+<p>The tiffgraph manual describes what each grammar admits. In short,
+<code>v0</code> admits classic TIFF with standard fields;
+<code>v1</code> adds BigTIFF, embedded camera profiles and the DNG 1.7
+JPEG XL fields; <code>merge_only</code> adds the private fields camera
+converters write, kept byte-exact and never interpreted.</p>
+<h2 data-number="11.3" id="the-formula"><span
+class="header-section-number">11.3</span> The formula</h2>
+<p>With every integer an unsigned 64-bit big-endian number:</p>
+<pre class="text"><code>SHA-256( &quot;SDE/0-preserved\0&quot;
+       ‖ u64be size
+       ‖ u64be n
+       ‖ (u64be off ‖ u64be len)*          -- each of the n regions
+       ‖ for each gap: u64be start ‖ u64be len ‖ bytes )</code></pre>
+<p><code>size</code> is the file size and <code>n</code> the number of
+regions; phidentify passes one region, the packet. The gaps are the
+stretches before, between and after the regions, so there are always
+<code>n + 1</code> of them, and each is hashed even when it is empty.
+That binds the packet’s position as well as everything around it.</p>
+<p>A small worked example, from the test suite: the 22-byte string
+<code>HEADER&lt;xmp one&gt;TRAILER</code> with one region at offset 6,
+length 9 hashes</p>
+<pre class="text"><code>&quot;SDE/0-preserved\0&quot; ‖ 22 ‖ 1 ‖ 6 ‖ 9 ‖ 0 ‖ 6 ‖ &quot;HEADER&quot; ‖ 15 ‖ 7 ‖ &quot;TRAILER&quot;</code></pre>
+<p>Replacing bytes inside the region leaves the digest unchanged;
+changing any byte outside it changes the digest. Regions must be sorted,
+disjoint and inside the file, or the digest fails.</p>
+<h2 data-number="11.4" id="cross-check-with-semantic-unison"><span
+class="header-section-number">11.4</span> Cross-check with Semantic
+Unison</h2>
+<p>phidentify’s implementation was cross-checked byte for byte against
+Semantic Unison’s own <code>SemanticDelta.inspect</code> on 60 DNGs: for
+every file both accepted, both chose the same strictest grammar and
+produced the same digest, and files without a packet were refused by
+both.</p>
+<h2 data-number="11.5" id="what-equality-proves-4"><span
+class="header-section-number">11.5</span> What equality proves</h2>
+<p>Equal preserved digests, <strong>under the same profile</strong>,
+mean that every byte outside the primary XMP packet is equal, and that
+the packet sits at the same offset with the same length. The files can
+differ only inside the packet.</p>
+<p>Digests are comparable only under the same profile. The digest
+depends on the grammar through the region it returns, and a file
+accepted by <code>dng-xmp/2</code> that a stricter peer refuses has no
+<code>dng-xmp/0</code> digest at all. Compare <code>dng_semantic</code>
+before comparing <code>preserved</code>.</p>
+<h2 data-number="11.6" id="what-it-does-not-prove-4"><span
+class="header-section-number">11.6</span> What it does not prove</h2>
+<p>Anything about the XMP packet. Two files with equal preserved digests
+can have completely different keywords, ratings and develop settings. It
+also does not cover a file whose packet changed size: a longer packet
+moves the gaps and changes the digest, even if nothing else changed.
+That is deliberate. Semantic Unison treats such a rewrite as a different
+operation.</p>
+<h2 data-number="11.7" id="when-to-use-it-4"><span
+class="header-section-number">11.7</span> When to use it</h2>
+<p>Use it to prove a metadata-only edit: the working copy and the backup
+differ, and you want to know whether only the XMP packet changed. With
+equal preserved digests, the backup plus the working copy’s packet is
+the working copy. This is the identity a synchronizer needs before it
+sends metadata without image bytes.</p>
+<h2 data-number="11.8" id="reporting-4"><span
+class="header-section-number">11.8</span> Reporting</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Situation</th>
+<th><code>dng_semantic</code></th>
+<th><code>preserved</code></th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>not requested</td>
+<td><code>Not_attempted</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>-</code>, <code>-</code></td>
+</tr>
+<tr>
+<td>no grammar accepts the file</td>
+<td><code>Failed reason</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>!reason</code>, <code>-</code></td>
+</tr>
+<tr>
+<td>accepted</td>
+<td><code>Ok "dng-xmp/N"</code></td>
+<td><code>Ok hex</code></td>
+<td><code>dng-xmp/N</code>, digest</td>
+</tr>
+<tr>
+<td>accepted, file over 1 GiB</td>
+<td><code>Ok "dng-xmp/N"</code></td>
+<td><code>Failed "file over the in-memory limit"</code></td>
+<td>profile, <code>!…</code></td>
+</tr>
+</tbody>
+</table>
+<p>When every grammar refuses, the reason reported is the last one, from
+<code>merge_only</code>. Typical reasons are <code>not TIFF</code>,
+<code>missing DNGVersion</code> and <code>no XMP packet</code>. A
+refused file has <strong>no</strong> preserved digest; it is not a match
+with anything.</p>
+<p>From Rust, the preserved digest is attempted only when
+<code>preserved_regions</code> is given: <code>None</code> otherwise,
+<code>Some(Err)</code> for invalid regions or a file over the in-memory
+limit.</p>
+<p>The walk reads the file through its own descriptor before the Rust
+core reads it for hashing. The Rust stamp check covers the hashing read;
+a caller that cannot rule out writes between the two should compare
+stamps or sizes itself.</p>
+<h2 data-number="11.9" id="cost-4"><span
+class="header-section-number">11.9</span> Cost</h2>
+<p>A tiffgraph walk, which reads only directories and selected values
+and is bounded by tiffgraph’s limits, then one SHA-256 pass over the
+file from the bytes already in memory. About the cost of the whole-file
+SHA-256.</p>
+</body>
+</html>

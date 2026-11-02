@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov, with Claude as co-author" />
+  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Which identity answers which question</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">phidentify</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">phidentify</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-015.html" accesskey="n" rel="next">Testing</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-013.html" accesskey="p" rel="previous">The identities side by side</a>
+</span>
+</div>
+</nav>
+<h1 data-number="13" id="which-identity-answers-which-question"><span
+class="header-section-number">13</span> Which identity answers which
+question</h1>
+<h2 data-number="13.1" id="is-this-file-in-my-backup"><span
+class="header-section-number">13.1</span> Is this file in my
+backup?</h2>
+<p>Start with <strong>SHA-256</strong>. If the backup holds a file with
+the same SHA-256, that file is an exact copy, and nothing more needs to
+be said.</p>
+<p>If it does not, ask why. Compare <strong>DNG raw blocks</strong>: an
+equal raw-block digest means the backup holds the same encoded
+photograph, but with different bytes somewhere else. That is not yet a
+backup of this file. Next compare <strong>preserved</strong> digests
+under the same profile. If they are equal, the only difference is the
+XMP packet, and the backup plus this file’s packet restores this file
+exactly. If they differ too, something outside the packet changed,
+perhaps a refreshed preview or a field a converter rewrote, and the file
+needs its own copy, or a verified delta such as dng-compare makes.</p>
+<p>A failed identity at any step means “not established”. It never means
+“contained”.</p>
+<h2 data-number="13.2" id="was-this-only-a-metadata-edit"><span
+class="header-section-number">13.2</span> Was this only a metadata
+edit?</h2>
+<p>Compare the two versions:</p>
+<ul>
+<li>SHA-256 differs, <strong>preserved</strong> equal under the same
+profile: only the XMP packet changed.</li>
+<li>The <strong>metadata</strong> digests then differ, and
+<code>metadata::diff</code> names the fields: a rating, a keyword, a
+develop setting.</li>
+<li><strong>preserved</strong> differs but <strong>raw blocks</strong>
+are equal: the raw data is the same, but something besides the packet
+changed. Look at the layout, the previews and the private fields before
+calling it metadata-only.</li>
+<li><strong>raw blocks</strong> differ: the encoded raw data changed. It
+may be a re-encode of the same samples, which dng-compare can decide by
+decoding, or a different photograph.</li>
+</ul>
+<h2 data-number="13.3"
+id="is-this-still-the-original-my-catalog-recorded"><span
+class="header-section-number">13.3</span> Is this still the original my
+catalog recorded?</h2>
+<p>Compute the <strong>Lightroom fingerprint</strong> and compare it,
+with the file size, against the <code>AgLibraryFileDigest.digest</code>
+value stored for that original, read from a copy of the catalog. Equal
+means Lightroom Classic’s matcher would accept the file. A file outside
+the supported strata gives no answer from phidentify; it does not give a
+“no”.</p>
+<p>SHA-256 cannot answer this question, because the catalog does not
+store one, and because Classic’s own value deliberately survives
+metadata written into the file.</p>
+<h2 data-number="13.4" id="did-the-shuttle-copy-arrive-intact"><span
+class="header-section-number">13.4</span> Did the shuttle copy arrive
+intact?</h2>
+<p>When files travel on a portable drive or across a network and come
+back, the question is about bytes, so the answer is
+<strong>SHA-256</strong>: record it before the copy, recompute it after,
+and compare. Nothing weaker will do, because a damaged byte inside a raw
+block is still damage even if the metadata looks the same.</p>
+<p>If an application on the other side wrote metadata into the files on
+arrival, SHA-256 will differ. The <strong>preserved</strong> digest then
+tells you whether the image data and layout arrived intact and only the
+packet changed, and the <strong>metadata</strong> diff tells you what
+was written.</p>
+</body>
+</html>
