@@ -8,13 +8,15 @@ let () =
   let a = Filename.concat dir "a.jpg" and b = Filename.concat dir "b.jpg" in
   write a "\xff\xd8\xff\xe0 synthetic one";
   write b "\xff\xd8\xff\xe0 synthetic two";
-  let request = { Phidentify.dng_raw_blocks = true; lightroom = true; metadata = false } in
+  let request = { Phidentify.all with metadata = false } in
   (match Phidentify.identify ~request a with
    | Ok i ->
      assert (String.length i.sha256 = 64);
      assert (i.dng_raw_blocks = Phidentify.Not_attempted);
      assert (i.lightroom = Phidentify.Not_attempted);
-     assert (i.metadata = Phidentify.Not_attempted)
+     assert (i.metadata = Phidentify.Not_attempted);
+     assert (match i.dng_semantic with Phidentify.Failed _ -> true | _ -> false);
+     assert (i.preserved = Phidentify.Not_attempted)
    | Error e -> failwith e);
   (match Phidentify.identify (Filename.concat dir "missing") with
    | Error _ -> ()

@@ -9,7 +9,12 @@
       ([AgLibraryFileDigest.digest]) for supported DNG strata; native-matcher
       correspondence, not byte or pixel equality.
     - [metadata]: digest of the exiftool-rs record without location members,
-      plus the record; a separate identity from Perl ExifTool output. *)
+      plus the record; a separate identity from Perl ExifTool output.
+    - [dng_semantic] and [preserved]: the strictest tiffgraph grammar
+      (["dng-xmp/0"], ["/1"], ["/2"], Semantic Unison's profiles) that accepts
+      the DNG, and Unison's [SDE/0-preserved] digest of every byte outside its
+      primary XMP packet, with size and layout bound in. Equal [preserved]
+      means only the XMP packet can differ. *)
 
 type outcome = Not_attempted | Ok of string | Failed of string
 
@@ -18,10 +23,15 @@ type identity = {
   dng_raw_blocks : outcome;
   lightroom : outcome;
   metadata : outcome;
-  metadata_record : string option;  (** exiftool-rs JSON, when requested *)
+  dng_semantic : outcome;  (** [Ok profile] *)
+  preserved : outcome;
+  metadata_record : string option;
+  (** exiftool-rs JSON, when requested; with [compact_record], string members
+      over 1 KiB are replaced by [long-sha256:<hex>:<length>]. *)
 }
 
-type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool }
+type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
+                 dng_semantic : bool; compact_record : bool }
 
 val all : request
 (** Every identity the linked library supports. *)

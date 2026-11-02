@@ -6,6 +6,7 @@
 //! | [`dng_blocks`] encoded raw blocks | same encoded primary raw data (dng-compare semantics) | equal metadata, decoded pixels across re-encodes |
 //! | [`lightroom`] original fingerprint | Lightroom's original matcher would pair them | byte or pixel equality |
 //! | [`metadata`] record digest | equal exiftool-rs metadata, location excluded | equal image data |
+//! | [`file::preserved_sha256`] over caller regions | every byte outside the regions equal, same size and layout | anything about the regions' contents |
 //!
 //! None of these substitutes for another; a missing or failed identity is not a match.
 pub mod dng_blocks;
@@ -23,11 +24,14 @@ use std::path::Path;
 /// from the same bytes; larger files get a streamed SHA-256 only.
 pub const IN_MEMORY_LIMIT: u64 = 1 << 30;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
     pub dng_blocks: bool,
     pub lightroom: bool,
     pub metadata: bool,
+    /// Editable regions found by a tiffgraph walk; when given, the
+    /// `SDE/0-preserved` complement digest is computed over the same bytes.
+    pub preserved_regions: Option<Vec<(u64, u64)>>,
 }
 
 /// An identity that was not attempted is `None`; one that failed or does not
@@ -41,6 +45,7 @@ pub struct Identity {
     pub dng_raw_blocks_sha256: Outcome,
     pub lightroom_digest: Outcome,
     pub metadata_digest: Outcome,
+    pub preserved_sha256: Outcome,
     #[serde(skip)]
     pub metadata_json: Option<String>,
 }
@@ -85,6 +90,10 @@ pub fn identify(path: &Path, opts: Options) -> Result<Identity> {
     #[cfg(not(feature = "metadata"))]
     let (metadata_digest, metadata_json) =
         (opts.metadata.then(|| Err("built without the metadata feature".to_string())), None);
+    let preserved_sha256 = opts.preserved_regions.as_deref().map(|regions| match bytes.as_deref() {
+        Some(b) => file::preserved_sha256(b, regions).map_err(|e| e.to_string()),
+        None => Err("file over the in-memory limit".to_string()),
+    });
     ensure!(file::stamp(path)? == before, "file changed while being identified");
-    Ok(Identity { stamp: before, sha256, dng_raw_blocks_sha256, lightroom_digest, metadata_digest, metadata_json })
+    Ok(Identity { stamp: before, sha256, dng_raw_blocks_sha256, lightroom_digest, metadata_digest, preserved_sha256, metadata_json })
 }

@@ -3,9 +3,9 @@ use phidentify::{Options, identify};
 use std::path::Path;
 
 fn main() {
-    let opts = Options { dng_blocks: true, lightroom: true, metadata: cfg!(feature = "metadata") };
+    let opts = Options { dng_blocks: true, lightroom: true, metadata: cfg!(feature = "metadata"), preserved_regions: None };
     for arg in std::env::args().skip(1) {
-        match identify(Path::new(&arg), opts) {
+        match identify(Path::new(&arg), opts.clone()) {
             Ok(id) => println!("{}", serde_json::json!({"path": arg, "identity": id})),
             Err(e) => println!("{}", serde_json::json!({"path": arg, "error": format!("{e:#}")})),
         }

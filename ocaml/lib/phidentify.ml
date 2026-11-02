@@ -5,18 +5,22 @@ type identity = {
   dng_raw_blocks : outcome;
   lightroom : outcome;
   metadata : outcome;
+  dng_semantic : outcome;
+  preserved : outcome;
   metadata_record : string option;
 }
 
-type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool }
+type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
+                 dng_semantic : bool; compact_record : bool }
 
-let all = { dng_raw_blocks = true; lightroom = true; metadata = true }
+let all = { dng_raw_blocks = true; lightroom = true; metadata = true; dng_semantic = true; compact_record = false }
 let version = Ffi.version
 let backend = Pool.backend
 let recommended_workers = Pool.recommended
 
 let flags (r : request) =
   (if r.dng_raw_blocks then 1 else 0) lor (if r.lightroom then 2 else 0) lor (if r.metadata then 4 else 0)
+  lor (if r.compact_record then 8 else 0)
 
 let prefixed p s = String.length s >= String.length p && String.sub s 0 (String.length p) = p
 let rest p s = String.sub s (String.length p) (String.length s - String.length p)
@@ -27,18 +31,26 @@ let outcome = function
   | s when prefixed "err:" s -> Failed (rest "err:" s)
   | s -> Failed ("malformed field: " ^ s)
 
-let decode (status, payload) : (identity, string) result =
+let decode ((status, payload), sem) : (identity, string) result =
   if status <> 0 then Error payload
   else match String.split_on_char '\000' payload with
-    | [ sha; blocks; lr; md; record ] ->
+    | [ sha; blocks; lr; md; preserved; record ] ->
+      let dng_semantic = match sem with
+        | None -> Not_attempted
+        | Some (Result.Ok (profile, _)) -> Ok profile
+        | Some (Error reason) -> Failed reason in
       (match outcome sha with
        | Ok sha256 ->
          Result.Ok { sha256; dng_raw_blocks = outcome blocks; lightroom = outcome lr; metadata = outcome md;
+                     dng_semantic; preserved = outcome preserved;
                      metadata_record = (match outcome record with Ok j -> Some j | _ -> None) }
        | _ -> Error "missing sha256")
     | _ -> Error "malformed phidentify fields"
 
-let identify ?(request = all) path = decode (Ffi.identify path (flags request))
+let identify ?(request = all) path =
+  match Pool.one ~flags:(flags request) ~semantic:request.dng_semantic path with
+  | Result.Ok raw -> decode raw
+  | Error m -> Error m
 
 let identify_all ?(request = all) ~workers paths =
   if workers < 1 then invalid_arg "workers must be positive";
@@ -47,7 +59,8 @@ let identify_all ?(request = all) ~workers paths =
   if n = 0 then [] else begin
     let workers = min workers (min n (max 1 (Pool.recommended ()))) in
     let results = Array.make n None in
-    List.iter (fun (i, r) -> results.(i) <- Some r) (Pool.run ~workers ~flags:(flags request) paths);
+    List.iter (fun (i, r) -> results.(i) <- Some r)
+      (Pool.run ~workers ~flags:(flags request) ~semantic:request.dng_semantic paths);
     Array.to_list (Array.mapi (fun i slot -> match slot with
       | Some (Result.Ok raw) -> decode raw
       | Some (Error message) -> Error message

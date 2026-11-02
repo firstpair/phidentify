@@ -36,6 +36,25 @@ pub fn extract(path: &Path) -> Result<Record> {
     Ok(Record { json, digest: crate::file::sha256_bytes(&canonical) })
 }
 
+/// The record with every string member over 1 KiB (embedded thumbnails as
+/// `base64:`, camera-profile tables) replaced by `long-sha256:<hex>:<length>`,
+/// for storage. Digests are always taken over the full record.
+pub fn compact(json: &str) -> Result<String> {
+    fn walk(v: &mut Value) {
+        match v {
+            Value::String(s) if s.len() > 1024 => {
+                *s = format!("long-sha256:{}:{}", crate::file::sha256_bytes(s.as_bytes()), s.len());
+            }
+            Value::Array(a) => a.iter_mut().for_each(walk),
+            Value::Object(o) => o.values_mut().for_each(walk),
+            _ => {}
+        }
+    }
+    let mut v: Value = serde_json::from_str(json)?;
+    walk(&mut v);
+    Ok(serde_json::to_string(&v)?)
+}
+
 /// One differing member: (key, left value, right value), `None` when absent on that side.
 pub type Difference = (String, Option<Value>, Option<Value>);
 

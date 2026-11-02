@@ -9,6 +9,7 @@ and OxCaml binding.
 | `dng_raw_blocks` | same encoded primary raw data in a DNG, with the same encoding tags | equal metadata, XMP or previews; equal pixels after a re-encode |
 | `lightroom` | Lightroom Classic's original matcher pairs the files (`AgLibraryFileDigest.digest`) | byte or pixel equality |
 | `metadata` | equal exiftool-rs metadata records, with file location and dates left out | equal image data |
+| `preserved` (with `dng_semantic`) | every byte outside the DNG's primary XMP packet is equal, at the same size and layout | anything about the XMP packet |
 
 One identity never stands in for another. An identity that was not attempted,
 failed, or does not apply to the file is reported as such, never as a match.
@@ -34,6 +35,13 @@ failed, or does not apply to the file is reported as such, never as a match.
   records from different engines never compare equal. They are a separate
   identity from Perl ExifTool output. `metadata::diff` lists the members that
   differ between two records.
+
+- **Preserved (complement) digest** is Semantic Unison's `SDE/0-preserved`
+  hash: SHA-256 over every byte outside the editable regions, with the file
+  size and region geometry bound in. The OCaml package finds the region with
+  [tiffgraph](https://github.com/firstpair/tiffgraph), using the strictest of
+  Unison's grammars `dng-xmp/0`, `/1` and `/2` that accepts the file, and
+  records which one. Rust callers pass regions in `Options::preserved_regions`.
 
 ## Rust
 

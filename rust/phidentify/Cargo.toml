@@ -27,4 +27,5 @@ serde_json = { version = "1.0.151", optional = true }
 dng-exiftool-ffi = { git = "https://github.com/firstpair/dng-compare", rev = "f68627f2a88eb5bbbd642fb7cad605e3dfa05cec", optional = true }
 
 [dev-dependencies]
+sha2 = "0.11.0"
 serde_json = "1.0.151"

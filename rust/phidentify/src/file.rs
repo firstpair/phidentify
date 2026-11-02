@@ -70,3 +70,35 @@ pub fn sha256_file(path: &Path) -> Result<String> {
     }
     Ok(hex(&hasher.finalize()))
 }
+
+/// Semantic Unison's `SDE/0-preserved` digest: SHA-256 over every byte outside
+/// the editable `regions` (sorted, non-overlapping (offset, length) pairs), with
+/// the file size and the region geometry bound in. Byte for byte the `preserved`
+/// hash of Unison's `SemanticDelta.inspect`:
+/// "SDE/0-preserved\0" ‖ u64be size ‖ u64be n ‖ (u64be off ‖ u64be len)* ‖
+/// for each gap: u64be start ‖ u64be len ‖ bytes. Regions come from a tiffgraph walk.
+pub fn preserved_sha256(bytes: &[u8], regions: &[(u64, u64)]) -> Result<String> {
+    let size = bytes.len() as u64;
+    let mut h = Sha256::new();
+    h.update(b"SDE/0-preserved\0");
+    h.update(size.to_be_bytes());
+    h.update((regions.len() as u64).to_be_bytes());
+    for &(off, len) in regions {
+        h.update(off.to_be_bytes());
+        h.update(len.to_be_bytes());
+    }
+    let mut position = 0u64;
+    let mut gap = |start: u64, stop: u64| {
+        h.update(start.to_be_bytes());
+        h.update((stop - start).to_be_bytes());
+        h.update(&bytes[start as usize..stop as usize]);
+    };
+    for &(off, len) in regions {
+        let end = off.checked_add(len).filter(|&e| e <= size);
+        ensure!(off >= position && end.is_some(), "regions must be sorted, disjoint and inside the file");
+        gap(position, off);
+        position = end.unwrap();
+    }
+    gap(position, size);
+    Ok(hex(&h.finalize()))
+}

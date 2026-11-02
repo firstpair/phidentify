@@ -27,6 +27,7 @@
  (name phidentify)
  (public_name phidentify)
  (libraries
+  tiffgraph
   (select
    pool.ml
    from

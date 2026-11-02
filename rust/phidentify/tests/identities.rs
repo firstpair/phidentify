@@ -91,8 +91,8 @@ fn identify_reports_each_identity_separately() {
     std::fs::write(&a, dng(&raw, b"<x:xmpmeta>1</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&b, dng(&raw, b"<x:xmpmeta>22</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&j, b"\xff\xd8\xff\xe0 synthetic").unwrap();
-    let opts = Options { dng_blocks: true, lightroom: false, metadata: false };
-    let (ia, ib, ij) = (identify(&a, opts).unwrap(), identify(&b, opts).unwrap(), identify(&j, opts).unwrap());
+    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None };
+    let (ia, ib, ij) = (identify(&a, opts.clone()).unwrap(), identify(&b, opts.clone()).unwrap(), identify(&j, opts).unwrap());
     assert_ne!(ia.sha256, ib.sha256);
     assert_eq!(ia.dng_raw_blocks_sha256, ib.dng_raw_blocks_sha256);
     assert!(matches!(ia.dng_raw_blocks_sha256, Some(Ok(_))));
@@ -100,4 +100,33 @@ fn identify_reports_each_identity_separately() {
     assert_eq!(ia.lightroom_digest, None);
     assert_eq!(ia.sha256, phidentify::file::sha256_file(&a).unwrap());
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn preserved_digest_follows_unisons_formula_and_ignores_region_bytes() {
+    use sha2::{Digest, Sha256};
+    let a = b"HEADER<xmp one>TRAILER".to_vec();
+    let mut b = a.clone();
+    b[7..14].copy_from_slice(b"XMP TWO");
+    let region = [(6u64, 9u64)];
+    let pa = phidentify::file::preserved_sha256(&a, &region).unwrap();
+    assert_eq!(pa, phidentify::file::preserved_sha256(&b, &region).unwrap());
+    let mut h = Sha256::new();
+    h.update(b"SDE/0-preserved\0");
+    h.update(22u64.to_be_bytes());
+    h.update(1u64.to_be_bytes());
+    h.update(6u64.to_be_bytes());
+    h.update(9u64.to_be_bytes());
+    h.update(0u64.to_be_bytes());
+    h.update(6u64.to_be_bytes());
+    h.update(b"HEADER");
+    h.update(15u64.to_be_bytes());
+    h.update(7u64.to_be_bytes());
+    h.update(b"TRAILER");
+    assert_eq!(pa, phidentify::file::hex(&h.finalize()));
+    let mut c = a.clone();
+    c[0] = b'h';
+    assert_ne!(pa, phidentify::file::preserved_sha256(&c, &region).unwrap());
+    assert!(phidentify::file::preserved_sha256(&a, &[(20, 5)]).is_err());
+    assert!(phidentify::file::preserved_sha256(&a, &[(6, 4), (8, 2)]).is_err());
 }
