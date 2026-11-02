@@ -1,0 +1,23 @@
+opam-version: "2.0"
+name: "phidentify-tiff"
+version: "0.1.0"
+synopsis: "Bounded TIFF/DNG graph walker: XMP packet location, protected extents, physical regions"
+description: """
+Pure OCaml, with no Rust dependency. Locates the primary XMP packet of a DNG
+under a fixed grammar, protects every other declared extent, and reports the
+file's physical regions. Builds with stock OCaml 5 and with OxCaml, where its
+interface is portable.
+"""
+maintainer: "Alexy Khrabrov"
+authors: ["Alexy Khrabrov"]
+license: "MIT"
+homepage: "https://github.com/firstpair/phidentify"
+bug-reports: "https://github.com/firstpair/phidentify/issues"
+depends: [
+  "ocaml" {>= "5.1"}
+  "dune" {>= "3.9"}
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]

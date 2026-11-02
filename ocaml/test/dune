@@ -1,4 +1,5 @@
 (test
  (name test_phidentify)
+ (package phidentify)
  (deps ../lib/libphidentify_ffi.a)
  (libraries phidentify unix))

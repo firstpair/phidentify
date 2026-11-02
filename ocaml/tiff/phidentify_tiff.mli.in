@@ -1,0 +1,75 @@
+(** Bounded TIFF/DNG graph walker, in pure OCaml with no Rust dependency.
+
+    It locates the primary XMP packet of a DNG, protects every other declared
+    extent so the packet may not alias it, and can report the file's physical
+    regions. It is not a DNG validator, a decoder or a raw-image fingerprint
+    ([Phidentify]'s [dng_raw_blocks] is that). A caller that rewrites the
+    packet must still prove separately that every byte outside it is kept.
+
+    Moved unchanged from Semantic Unison's [DngSemantic]; the grammars below
+    are the ones its [org.firstpair.dng-xmp/0], [/1] and [/2] profiles
+    negotiate, and changing what any of them admits changes those profiles. *)
+
+type reader = { size : int64; read : int64 -> int -> string; check : unit -> unit }
+(** [read offset length] returns exactly [length] bytes or raises. [check] runs
+    once after a successful walk, e.g. to confirm the file did not change.
+    Exceptions from [read] and [check] propagate unchanged. *)
+
+type xmp = { offset : int64; length : int }
+
+type component_role = Image_bytes | Standard_value | Private_value | Structure
+type component_region = { logical_id : string; schema : string; role : component_role;
+                          offset : int64; length : int64 }
+
+type policy = { extended : bool; opaque_maker : bool; layout_only : bool;
+                require_xmp : bool; max_xmp : int }
+
+val v0 : max_xmp:int -> policy
+(** Classic TIFF, a fixed set of standard tags, one BYTE XMP packet. *)
+
+val v1 : max_xmp:int -> policy
+(** [v0] plus BigTIFF, bounded embedded CR camera-profile graphs and DNG 1.7
+    JPEG XL scalars. Both byte orders and each embedded profile's relative
+    offset base are explicit. *)
+
+val merge_only : max_xmp:int -> policy
+(** [v1] plus an Exif MakerNote (tag 37500, UNDEFINED or BYTE), primary-IFD
+    DNGPrivateData (50740, BYTE), single LONG ImageNumber (37393) and
+    CacheVersion (51114), UNDEFINED ProfileGainTableMap (52525) and tag 52545,
+    a 4-byte TIFF/EP StandardID (37398), Exif CompositeImageExposureTimes
+    (42082, UNDEFINED), any field of a simple type (ASCII, SHORT, RATIONAL,
+    SSHORT, SRATIONAL, FLOAT, DOUBLE) outside camera profiles, and the fields
+    named by [admit_fields], all kept as protected values. XMP packets outside
+    the primary IFD are protected values too; only the primary packet, BYTE or
+    UNDEFINED, is located. Internal pointers are not interpreted. *)
+
+val layout : max_xmp:int -> policy
+(** [v1] geometry only: unknown and private values are protected byte-exact;
+    hidden pointer rules are not interpreted. Grants no merge authority. *)
+
+val walk : ?record:(component_region -> unit) ->
+  ?unknown:(string -> int -> int -> int64 -> unit) ->
+  policy -> reader -> (xmp option, string) result
+(** [Ok (Some packet)] for the primary XMP packet, [Ok None] only when the
+    policy does not require one, [Error reason] for anything outside the
+    grammar. [unknown] turns an unknown field from an error into a note
+    (directory, tag, type, count). [record] sees each physical region. *)
+
+
+val admit_fields : (string * int * int) list -> unit
+(** Replace the run-time [merge_only] admissions, as (directory, tag, type)
+    with directory Image, Exif, GPS or Interop. Walks read the current list. *)
+
+val parse_admission : string -> (string * int * int, string) result
+(** Parse one [Image|Exif|GPS|Interop:TAG:TYPE] admission; IFD types refused. *)
+
+val unknown_fields : max_xmp:int -> reader -> (string * int * int * int64) list * string option
+(** Survey diagnostic, never merge authority: walks the [merge_only] grammar
+    and lists each field outside it as (directory, tag, type, count) rather
+    than stopping at the first, plus the first other reason the walk stopped. *)
+
+val component_regions : max_xmp:int -> reader -> (component_region list, string) result
+(** At most 65536 advisory physical claims from the [layout] walk; no XMP
+    requirement. Inline values are separated from descriptors and padding.
+    Aliases are not independent components: consumers must reject conflicting
+    physical claims. Logical image IDs identify traversal order, not pixels. *)
