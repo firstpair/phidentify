@@ -82,29 +82,12 @@ match Phidentify.identify path with
 `Phidentify.identify_all ~workers paths` returns results in input order. The
 `phidentify [-j N] FILE...` executable prints one tab-separated line per file.
 
-## phidentify-tiff
+## TIFF graph walker
 
-`ocaml/tiff/` is a second opam package, `phidentify-tiff`, in pure OCaml with
-no Rust. It is a bounded TIFF/DNG graph walker: it finds a DNG's primary XMP
-packet under a fixed grammar, protects every other declared extent so the
-packet may not alias it, and reports the file's physical regions. It is not a
-validator, a decoder or an identity; `dng_raw_blocks` above is the identity.
-
-```sh
-cd ocaml && dune build -p phidentify-tiff
-```
-
-```ocaml
-let reader = { Phidentify_tiff.size; read; check } in
-match Phidentify_tiff.walk (Phidentify_tiff.v1 ~max_xmp:(1 lsl 20)) reader with
-| Ok (Some { offset; length }) -> (* the packet *) ()
-| Ok None | Error _ -> ()
-```
-
-The grammars (`v0`, `v1`, `merge_only`, `layout`) are the ones Semantic
-Unison's `org.firstpair.dng-xmp/0`, `/1` and `/2` profiles negotiate; the
-walker moved here unchanged from its `DngSemantic`. Changing what a grammar
-admits changes those profiles. With OxCaml the interface is `@@ portable`.
+The bounded TIFF/DNG walker that locates a DNG's editable XMP packet, shared
+with Semantic Unison, lives in its own repository, `tiffgraph` (opam
+`tiffgraph`, pure OCaml for stock OCaml and OxCaml). It briefly lived here as
+`ocaml/tiff`.
 
 ## Licences
 
