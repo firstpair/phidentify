@@ -104,7 +104,7 @@ CAMLprim value phidentify_pread_stub(value fd, value offset, value length) {
     got += r;
   }
   caml_acquire_runtime_system();
-  if (failed) { free(buf); caml_failwith("short read"); }
+  if (failed) { free(buf); caml_failwith("read outside the bytes"); }
   s = caml_alloc_initialized_string(n, buf);
   free(buf);
   CAMLreturn(s);
