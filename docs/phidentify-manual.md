@@ -2,7 +2,7 @@
 
 This manual is by Alexy Khrabrov, with Claude as co-author. The ideas and decisions are Alexy's; Claude wrote the text and the code with him.
 
-It describes phidentify 0.1.0 as of 2026-11-02. phidentify is licensed under the MIT License; some optional builds link code under other licences, as the chapter on licences explains. Its source is at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
+It describes phidentify 0.2.0 as of 2026-11-02. phidentify is licensed under the MIT License; some optional builds link code under other licences, as the chapter on licences explains. Its source is at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
 
 Every example in this manual uses synthetic files or generic paths. Nothing here depends on a particular photo library.
 
@@ -18,11 +18,12 @@ phidentify computes several **named identities** for a photo file, each answerin
 | DNG encoded raw blocks | `dng_raw_blocks_sha256` | `dng_raw_blocks` | the same encoded primary raw data, under the same encoding tags |
 | Lightroom Classic original fingerprint | `lightroom_digest` | `lightroom` | Lightroom Classic's original matcher would pair the files |
 | Metadata record | `metadata_digest` | `metadata` | equal exiftool-rs metadata records, file location left out |
-| Preserved (complement) digest | `preserved_sha256` | `preserved`, with `dng_semantic` | every byte outside the primary XMP packet is equal, at the same size and layout |
+| Preserved (complement) digest | `preserved_sha256`, with `dng_semantic_profile` | `preserved`, with `dng_semantic` | every byte outside the primary XMP packet is equal, at the same size and layout |
+| Image data | `image_data_sha256` | `image_data` | the same stored image bytes, in a camera raw, TIFF or JPEG that is not a DNG |
 
 Three rules hold for every identity, in every interface:
 
-1. **They are separate.** One identity never stands in for another. Equal raw blocks are not equal bytes; an equal Lightroom fingerprint is not equal pixels; an equal metadata record says nothing about image data.
+1. **They are separate.** One identity never stands in for another. Equal raw blocks are not equal bytes; equal image data is not equal metadata; an equal Lightroom fingerprint is not equal pixels; an equal metadata record says nothing about image data.
 2. **A missing identity is not a match.** An identity that was not requested, does not apply to the file, or failed, is reported as such. Two files that both failed an identity have not matched on it.
 3. **Every value comes from one consistent read.** phidentify checks that the file did not change while it was identified. If it did, the whole result is an error.
 
@@ -36,6 +37,8 @@ phidentify is one of three sister projects that grew out of the same photo-archi
 
 phidentify itself computes identities and nothing else. It does not compare trees, write files, touch catalogs, or synchronize anything.
 
+Comparing trees is the job of its main consumer, **[phindex](https://github.com/firstpair/phindex)**, which keeps every phidentify identity of every file under a directory tree in a resumable SQLite index. Since its version 0.2.0, `phindex align` accounts for the files of one indexed archive in another by these identities rather than by name, so copies that were moved, renamed, re-dated or had other metadata edited are still found. phindex also uses the image-data prefix test described below to add the image-data identity to an existing index without reading most files again. Its manual is on the [First Pair shelf](https://firstpair.org/books/phindex/).
+
 ## What it is not
 
 - **Not a rendering identity.** No identity here says that two files look the same after processing. Crop, white balance, profiles and develop settings live in metadata, and the raw-data identities ignore them.
@@ -48,8 +51,9 @@ phidentify itself computes identities and nothing else. It does not compare tree
 phidentify is a Rust core with a C ABI, and an OCaml package over that ABI.
 
 ```text
-            Rust core (rust/phidentify)
-   sha256 · dng_blocks · lightroom · metadata · preserved
+                Rust core (rust/phidentify)
+ sha256 · dng_blocks · image_data · lightroom · metadata
+       semantic (tiffgraph Rust crate) · preserved
                        │
             C ABI (rust/phidentify-ffi, ocaml/lib/phidentify.h)
                        │
@@ -58,13 +62,13 @@ phidentify is a Rust core with a C ABI, and an OCaml package over that ABI.
          OxCaml:        Domain.Safe.spawn pool, portable closures
 ```
 
-**The Rust core** (`rust/phidentify`, edition 2024, pinned to Rust 1.99.0) holds every identity. `identify(path, Options)` reads the file once and takes every requested identity from the same bytes. The crate forbids `unsafe` code.
+**The Rust core** (`rust/phidentify`, edition 2024, pinned to Rust 1.99.0) holds every identity. `identify(path, Options)` reads the file once and takes every requested identity from the same bytes. With its `semantic` feature it also walks a DNG with tiffgraph's Rust crate, to find the region for the preserved digest itself. The crate forbids `unsafe` code.
 
 **The C ABI** (`rust/phidentify-ffi`) exposes three functions, declared in `ocaml/lib/phidentify.h`. One call returns every requested identity as a single buffer. It is built as a static library, `libphidentify_ffi.a`, and also as an rlib.
 
-**The OCaml package** (`ocaml/`, opam name `phidentify`) binds that library and adds two things the Rust core does not do:
+**The OCaml package** (`ocaml/`, opam name `phidentify`) binds that library and adds two things of its own:
 
-- the **tiffgraph walk** that locates a DNG's primary XMP packet under the strictest grammar that accepts it, which supplies the regions for the preserved digest;
+- its own **tiffgraph walk**, with the pure-OCaml tiffgraph, that locates a DNG's primary XMP packet under the strictest grammar that accepts it and supplies the regions for the preserved digest. The C ABI does not run the Rust walk; the OCaml walk and the Rust walk use the same grammars in the same order, with the same packet limit, and give the same profiles, regions and refusal reasons;
 - a **domain pool** that identifies many files in parallel and returns results in input order.
 
 The pool is compiled for the switch it is built in. On **stock OCaml 5** it uses `Domain.spawn`. On **OxCaml** it uses `Domain.Safe.spawn`, which accepts only portable closures; the externals it calls carry the `@@ portable` modality, and the paths are shared as an immutable array. dune selects the OxCaml pool when the `stdlib_stable` library exists, which only OxCaml switches provide, and the stock pool otherwise. `Phidentify.backend` reports which one was compiled in: `"domains-stock"` or `"domains-oxcaml"`.
@@ -80,12 +84,12 @@ The Rust toolchain is pinned in `rust/rust-toolchain.toml` to 1.99.0, with rustf
 ```sh
 git clone https://github.com/firstpair/phidentify.git
 cd phidentify/rust
-cargo build --release                                  # sha256, DNG raw blocks, Lightroom
+cargo build --release                                  # sha256, raw blocks, image data, Lightroom, DNG semantic
 cargo build --release --features phidentify/metadata   # adds the metadata record
 cargo test --release
 ```
 
-The `lightroom` feature is on by default and links [rawler](https://crates.io/crates/rawler) 0.8.0 to decode raw samples. The `metadata` feature is off by default; it fetches dng-compare's `dng-exiftool-ffi` crate from GitHub at a pinned commit, and it changes the licence of the resulting binary (see the chapter on licences). Build without default features to get only the whole-file, raw-block and preserved identities:
+The `lightroom` feature is on by default and links [rawler](https://crates.io/crates/rawler) 0.8.0 to decode raw samples. The `semantic` feature is on by default too; it fetches the Rust crate of [tiffgraph](https://github.com/firstpair/tiffgraph) from GitHub at a pinned commit and lets the core walk DNGs for the preserved digest. The `metadata` feature is off by default; it fetches dng-compare's `dng-exiftool-ffi` crate from GitHub at a pinned commit, and it changes the licence of the resulting binary (see the chapter on licences). Build without default features to get only the whole-file, raw-block and image-data identities, and the preserved digest over regions the caller supplies:
 
 ```sh
 cargo build --release -p phidentify --no-default-features
@@ -110,7 +114,7 @@ opam exec --switch default  -- dune build && opam exec --switch default  -- dune
 opam exec --switch 5.2.0+ox -- dune build && opam exec --switch 5.2.0+ox -- dune test --force
 ```
 
-The switch names are examples: use your own stock OCaml switch and your own OxCaml switch. Test in both if you change anything the pools touch. The test prints the version and the backend, for example `ok phidentify 0.1.0 +lightroom domains-stock` under stock OCaml and `ok phidentify 0.1.0 +lightroom domains-oxcaml` under OxCaml.
+The switch names are examples: use your own stock OCaml switch and your own OxCaml switch. Test in both if you change anything the pools touch. The test prints the version and the backend, for example `ok phidentify 0.2.0 +lightroom domains-stock` under stock OCaml and `ok phidentify 0.2.0 +lightroom domains-oxcaml` under OxCaml.
 
 To include the metadata identity in the OCaml package, build the FFI library with it: `cargo build --release -p phidentify-ffi --features metadata`. `Phidentify.version ()` then ends in `+metadata`.
 
@@ -121,7 +125,7 @@ Two environment variables control how the Rust library is linked:
 
 ## Memory
 
-The C library, `phidentify-ffi`, uses mimalloc as the global allocator for Rust allocations. Under the macOS system allocator, metadata extraction through exiftool-rs fragmented the heap and kept about 0.5 MB resident per file in long multi-domain runs; with mimalloc it stays flat. The Rust crate itself leaves the allocator to the program that links it. To measure peak memory one identity at a time, run the probe example: `cargo run --release --example memprobe -- MODE FILE...`, where `MODE` is `sha`, `blocks`, `lightroom`, `metadata` or `all`.
+The C library, `phidentify-ffi`, uses mimalloc as the global allocator for Rust allocations. Under the macOS system allocator, metadata extraction through exiftool-rs fragmented the heap and kept about 0.5 MB resident per file in long multi-domain runs; with mimalloc it stays flat. The Rust crate itself leaves the allocator to the program that links it. To measure peak memory one identity at a time, run the probe example: `cargo run --release --example memprobe -- MODE FILE...`, where `MODE` is `sha`, `blocks`, `lightroom`, `metadata`, `image` or `all`.
 
 # Using it
 
@@ -131,7 +135,7 @@ The C library, `phidentify-ffi`, uses mimalloc as the global allocator for Rust 
 use phidentify::{identify, Options};
 use std::path::Path;
 
-let opts = Options { dng_blocks: true, lightroom: true, metadata: false, preserved_regions: None };
+let opts = Options { dng_blocks: true, lightroom: true, image_data: true, ..Options::default() };
 let id = identify(Path::new("photo.dng"), opts)?;
 println!("{}", id.sha256);
 match &id.dng_raw_blocks_sha256 {
@@ -141,7 +145,7 @@ match &id.dng_raw_blocks_sha256 {
 }
 ```
 
-`Options` has one switch per optional identity:
+`Options` has one switch per optional identity, and derives `Default` with every switch off:
 
 ```rust
 pub struct Options {
@@ -151,6 +155,11 @@ pub struct Options {
     /// Editable regions found by a tiffgraph walk; when given, the
     /// `SDE/0-preserved` complement digest is computed over the same bytes.
     pub preserved_regions: Option<Vec<(u64, u64)>>,
+    /// Walk the bytes with tiffgraph (strictest of dng-xmp/0, /1, /2)
+    /// and take `preserved_regions` from it; needs the `semantic` feature.
+    pub dng_semantic: bool,
+    /// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).
+    pub image_data: bool,
 }
 ```
 
@@ -164,6 +173,8 @@ pub struct Identity {
     pub lightroom_digest: Outcome,
     pub metadata_digest: Outcome,
     pub preserved_sha256: Outcome,
+    pub dng_semantic_profile: Outcome,   // Ok(profile) of the accepting grammar
+    pub image_data_sha256: Outcome,
     pub metadata_json: Option<String>,   // not serialized
 }
 pub type Outcome = Option<Result<String, String>>;
@@ -171,24 +182,31 @@ pub type Outcome = Option<Result<String, String>>;
 
 `Outcome` has three states: `None` when the identity was not attempted, `Some(Ok(value))`, and `Some(Err(reason))` when it failed or does not apply. The chapter on reporting lists exactly which happens when.
 
-The Rust core does not walk TIFF graphs for the preserved digest. A Rust caller passes the regions in `Options::preserved_regions`, as sorted, disjoint `(offset, length)` pairs inside the file, obtained from a tiffgraph walk or from Semantic Unison. `phidentify::file::preserved_sha256(bytes, regions)` computes the same digest over bytes already in memory.
+For the preserved digest a Rust caller has two choices:
 
-The `identify` example prints one JSON line per argument:
+- Set `dng_semantic: true`. The core walks the file with tiffgraph's Rust crate, using the same three grammars in the same order as the OCaml package, records the accepting grammar in `dng_semantic_profile`, and computes `preserved_sha256` over the packet it found. `phidentify::semantic::strictest(bytes)` is that walk over bytes in memory. For a file over the in-memory limit, the core walks it from disk instead, with tiffgraph's positional `FileReader` (`semantic::strictest_file(path)`), as the OCaml package's file reader does, so both report the same profile or the same refusal; the preserved digest itself then fails with `file over the in-memory limit`. When the walk refuses the file, `dng_semantic_profile` holds the reason and `preserved_sha256` is `None`.
+- Leave `dng_semantic` off and pass the regions in `Options::preserved_regions`, as sorted, disjoint `(offset, length)` pairs inside the file, obtained from a tiffgraph walk or from Semantic Unison. `phidentify::file::preserved_sha256(bytes, regions)` computes the same digest over bytes already in memory.
+
+The `identify` example requests every identity the build supports, including the DNG semantic walk and image data, and prints one JSON line per argument:
 
 ```sh
 cargo run --release --example identify -- photo.dng notes.txt
 cargo run --release --features phidentify/metadata --example identify -- photo.dng
 ```
 
-On a synthetic text file, a truncated TIFF and a missing path it prints (shortened with …):
+On a synthetic text file, a 14-byte TIFF with one empty directory and a missing path it prints (without the stamp, the digests shortened with …):
 
 ```json
-{"identity":{"dng_raw_blocks_sha256":null,…,"sha256":"c63c33f0…"},"path":"notes.txt"}
-{"identity":{"dng_raw_blocks_sha256":{"Err":"No DNG raw image found"},…},"path":"tiny.tif"}
+{"identity":{"dng_raw_blocks_sha256":null,"dng_semantic_profile":{"Err":"not TIFF"},
+  "image_data_sha256":{"Err":"not a TIFF-family file or JPEG"},"lightroom_digest":null,
+  "metadata_digest":null,"preserved_sha256":null,"sha256":"c5e496e7…"},"path":"notes.txt"}
+{"identity":{"dng_raw_blocks_sha256":{"Err":"TIFF offset outside file"},
+  "dng_semantic_profile":{"Err":"missing DNGVersion"},"image_data_sha256":{"Err":"no image data in TIFF"},
+  "lightroom_digest":null,"metadata_digest":null,"preserved_sha256":null,"sha256":"5b8de6f0…"},"path":"tiny.tif"}
 {"error":"stat missing: No such file or directory (os error 2)","path":"missing"}
 ```
 
-In JSON, `null` is not attempted, `{"Ok": …}` is a value and `{"Err": …}` is a failure. The example never passes preserved regions, so `preserved_sha256` is always `null` there.
+In JSON, `null` is not attempted, `{"Ok": …}` is a value and `{"Err": …}` is a failure. `preserved_sha256` stays `null` when the walk refuses the file; for a DNG a grammar accepts, it holds the digest.
 
 ## OCaml and OxCaml
 
@@ -205,12 +223,17 @@ type identity = {
   dng_semantic : outcome;  (* Ok profile *)
   preserved : outcome;
   metadata_record : string option;
+  image_data : outcome;
 }
 
 type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
-                 dng_semantic : bool; compact_record : bool }
+                 dng_semantic : bool; compact_record : bool; image_data : bool }
 
 val all : request
+val image_data_candidate : string -> bool
+val image_data_prefix_len : int
+val image_data_not_applicable : string
+val image_data_dng : string
 val version : unit -> string
 val backend : string
 val recommended_workers : unit -> int
@@ -218,7 +241,7 @@ val identify : ?request:request -> string -> (identity, string) result
 val identify_all : ?request:request -> workers:int -> string list -> (identity, string) result list
 ```
 
-`all` requests every identity and leaves `compact_record` off. A request field that the linked library does not support, such as `metadata` without the `metadata` feature, comes back as `Failed "built without the metadata feature"`, not as `Not_attempted`.
+`all` requests every identity, `image_data` included, and leaves `compact_record` off. A request field that the linked library does not support, such as `metadata` without the `metadata` feature, comes back as `Failed "built without the metadata feature"`, not as `Not_attempted`.
 
 `dng_semantic = true` runs the tiffgraph walk and, when it succeeds, the preserved digest over its region. `dng_semantic` then holds the name of the grammar that accepted the file, and `preserved` the digest.
 
@@ -233,6 +256,8 @@ match Phidentify.identify "photo.dng" with
    | _ -> ())
 ```
 
+`image_data` is the image-data identity, reported like the others. `image_data_candidate`, `image_data_prefix_len` and the two reason strings are the OCaml counterparts of the Rust `image_data::candidate`, `PREFIX_LEN`, `NOT_APPLICABLE` and `DNG`, and give the same answers; the chapter on image data explains how an indexer uses them.
+
 `identify_all ~workers paths` identifies a list in parallel and returns the results in input order. It raises `Invalid_argument` when `workers < 1`, and it uses at most `min workers (List.length paths)` domains, capped at `recommended_workers ()`.
 
 ## The phidentify command
@@ -243,13 +268,13 @@ The OCaml package installs `phidentify [-j N] FILE...`. It prints one tab-separa
 path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved
 ```
 
-Each identity column is the value, `-` when not attempted, or `!reason` when it failed. The command never requests the metadata identity, so that column is always `-`. A file that cannot be identified at all gets a two-column line, `path`, then `!reason`. `-j N` sets the number of workers; the default is `recommended_workers ()`.
+Each identity column is the value, `-` when not attempted, or `!reason` when it failed. The command never requests the metadata identity, so that column is always `-`. It does not print the image-data identity; use the library, or the Rust `identify` example, for that. A file that cannot be identified at all gets a two-column line, `path`, then `!reason`. `-j N` sets the number of workers; the default is `recommended_workers ()`.
 
-On a synthetic text file and a truncated TIFF:
+On the same synthetic text file and TIFF:
 
 ```text
-notes.txt  c63c33f0…  -                        -  -  !not TIFF            -
-tiny.tif   b44eca9f…  !No DNG raw image found  -  -  !missing DNGVersion  -
+notes.txt  c5e496e7…  -                          -  -  !not TIFF            -
+tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -
 ```
 
 ## The C ABI
@@ -259,6 +284,7 @@ tiny.tif   b44eca9f…  !No DNG raw image found  -  -  !missing DNGVersion  -
 #define PHIDENTIFY_LIGHTROOM 2u
 #define PHIDENTIFY_METADATA 4u
 #define PHIDENTIFY_COMPACT_RECORD 8u
+#define PHIDENTIFY_IMAGE_DATA 16u
 int32_t phidentify_identify(const uint8_t *path, size_t path_len, uint32_t flags,
                             const uint64_t *regions, size_t n_regions,
                             uint8_t **out, size_t *out_len);
@@ -277,13 +303,13 @@ void phidentify_free(uint8_t *ptr, size_t len);
 | 2 | nothing; an argument was invalid |
 | 3 | a message; the Rust core panicked, and the panic was caught |
 
-With status 0, `out` holds six fields separated by NUL bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata digest, preserved digest, metadata record JSON. Each field is `ok:<value>`, `err:<reason>`, or empty when not attempted. Free every `out` buffer exactly once with `phidentify_free(out, out_len)`.
+With status 0, `out` holds seven fields separated by NUL bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata digest, preserved digest, metadata record JSON, image data. The image-data field is filled only when `PHIDENTIFY_IMAGE_DATA` (16) is set in `flags`; it was added as the seventh field so that the first six keep their places. Each field is `ok:<value>`, `err:<reason>`, or empty when not attempted. Free every `out` buffer exactly once with `phidentify_free(out, out_len)`.
 
-`phidentify_version` returns a string such as `phidentify 0.1.0 +lightroom +metadata`, naming the features the library was built with.
+`phidentify_version` returns a string such as `phidentify 0.2.0 +lightroom +metadata`, naming the features the library was built with.
 
 # The identities
 
-The five chapters that follow describe each identity in the same order: what goes in, what equality proves and what it does not, when to use it, how it reports failure and not-applicable, and what it costs.
+The six chapters that follow describe each identity in the same order: what goes in, what equality proves and what it does not, when to use it, how it reports failure and not-applicable, and what it costs.
 
 # Whole-file SHA-256
 
@@ -311,7 +337,7 @@ The change check uses a **stamp** taken before and after identification: size, m
 
 ## Cost
 
-One sequential read of the file and one SHA-256 pass. Files up to 1 GiB are read once into memory, and every other identity is computed from those same bytes. Larger files are hashed in 4 MiB chunks and get only this identity.
+One sequential read of the file and one SHA-256 pass. Files up to 1 GiB are read once into memory, and every other identity is computed from those same bytes. Larger files are hashed in 4 MiB chunks. The identities that need the whole file in memory are then not available: raw blocks and the Lightroom fingerprint are not attempted, and the preserved digest and image data fail with `file over the in-memory limit`. The DNG semantic walk still runs, from disk, and the metadata record, which its engine reads from the path, is still computed.
 
 # DNG encoded raw blocks
 
@@ -370,6 +396,83 @@ The walk is bounded: at most 4,096 directories, 8,192 entries per directory, 16 
 ## Cost
 
 Cheap. The walk reads only the directories and the selected tags, and the hash reads the raw blocks once, from the bytes already in memory. There is no decoding. For a typical DNG the cost is close to one SHA-256 pass over the raw data.
+
+# Image data
+
+## What goes in
+
+The stored image bytes of a camera raw, TIFF or JPEG that is not a DNG, and nothing else. Which bytes those are depends on the format, which phidentify recognizes from the first bytes of the file:
+
+- **TIFF family.** Classic TIFF and BigTIFF, and the camera raws built on TIFF: NEF, CR2, ARW, 3FR, PEF, ORF, the RW2 header and others. phidentify walks the chain of directories from the header and every SubIFD, in walk order, and takes from **every** directory that has them the strip or tile payloads named by its offsets and byte counts (TileOffsets and TileByteCounts, or StripOffsets and StripByteCounts). Every directory counts, not just the primary raw image: thumbnails and previews stored as strips or tiles are part of it.
+- **Panasonic RW2.** Its raw data has no byte counts. When a directory has neither strip nor tile offsets but has RawDataOffset (tag 280), the span from that offset to the end of the file is taken.
+- **Fujifilm RAF.** The header, which starts with `FUJIFILMCCD-RAW`, names the CFA section by its offset and length, big-endian at bytes 100 and 104. That section is taken.
+- **JPEG.** The primary image's frame, tables and entropy-coded scans: every segment after SOI up to EOI except the APPn segments (EXIF, XMP, ICC profiles, thumbnails, MPF) and comments. Trailing data after EOI, where some cameras put further images, is left out.
+
+The digest is SHA-256 over a domain string, a format letter and the bytes in a fixed framing. All integers are unsigned 64-bit little-endian:
+
+```text
+"PHIDENTIFY-IMAGE-DATA-1\0"
+‖ "T" ‖ byte-order byte (1 for big-endian)                    -- TIFF family, RW2
+     ‖ for each directory with image data, in walk order:
+         u64le directory number (1, 2, …) ‖ u64le block count
+       ‖ for each strip or tile: u64le byte count ‖ bytes
+‖ "F" ‖ u64le CFA length ‖ CFA bytes                           -- RAF
+‖ "J" ‖ for each segment after SOI, up to EOI, except APPn and COM:
+         the segment as stored (marker, length, body)
+       ‖ after each SOS segment: u64le scan length ‖ scan bytes
+     ‖ FF D9                                                   -- JPEG
+```
+
+An RW2's raw span is framed as one directory with one block. A JPEG's scan bytes are hashed as stored, with their stuffed `FF 00` bytes and restart markers; standalone restart markers and fill bytes between segments are skipped. Offsets are never hashed, so image data that moved inside the file keeps the digest.
+
+The domain string names the definition. If what it covers ever changes, the domain string changes with it.
+
+## What equality proves
+
+Equal digests mean the two files store the same image bytes, in the same order and the same framing: the same strips and tiles, the same raw span, the same CFA section, or the same JPEG frame, tables and scans. The photograph as the camera or converter encoded it is the same.
+
+On real files, an ExifTool capture-time shift changed the whole-file SHA-256 of TIFF, ARW, RW2 and JPEG files and left their image data equal. (ExifTool cannot write 3FR, so that format was not part of the check.)
+
+## What it does not prove
+
+- **Not metadata equality.** EXIF, maker notes, XMP, IPTC, ICC profiles and comments are left out, and so are directory entries that do not name image data. Two files with equal image data can have different capture times, keywords and ratings.
+- **Not decoded-pixel equality.** The same picture re-encoded, re-compressed, re-tiled or saved with another byte order gets a different digest. So does a file whose preview strips were rewritten, because those strips are image data.
+- **Not a raw-block identity.** For DNGs, use the raw-block identity. The two are separate identities with separate domain strings, and a non-DNG file never has a raw-block digest.
+
+## When to use it
+
+Use it to match copies of non-DNG camera files and JPEGs whose metadata was edited. The commonest such edit is a capture-time shift, made because the camera clock was wrong or set to another time zone: it rewrites a few bytes of EXIF in every file, every whole-file SHA-256 changes, and a byte comparison says nothing is backed up. With image data, the shifted copy and the original still agree. The same holds for keywords, ratings or copyright written into a JPEG's APP segments.
+
+## Why DNGs are refused
+
+A DNG is a TIFF, and its strips include its previews. Lightroom Classic regenerates a DNG's previews when it saves metadata into the file, so an image-data digest of a DNG would change on a metadata edit, which is the change it is meant to survive. The raw-block identity already answers the question for DNGs, over the primary raw images only. So a TIFF-family file with a DNGVersion tag in any directory is refused with the reason `DNG: the raw-block identity applies instead`.
+
+CR3, HEIC and other ISO-BMFF or unknown containers are refused as not applicable.
+
+## Deciding from the first bytes
+
+Whether a file can have image data is decided by its first 16 bytes. `image_data::candidate(prefix)` in Rust and `Phidentify.image_data_candidate` in OCaml take the first `image_data::PREFIX_LEN` (`image_data_prefix_len`, 16) bytes of a file, or all of a shorter file, and return true when they start like a JPEG (`FF D8 FF`), a RAF (`FUJIFILMCCD-RAW`) or a TIFF-family file (`II` or `MM`, with at least four bytes).
+
+When `candidate` is false, the full identity fails with exactly `image_data::NOT_APPLICABLE` (`image_data_not_applicable`), `not a TIFF-family file or JPEG`, so a caller can record that outcome without reading the rest of the file. When it is true, only a full read can tell: a DNG fails with `image_data::DNG` (`image_data_dng`), and a malformed file with its own reason.
+
+This exists for indexers. When phindex 0.2.0 added the image-data column to existing indexes, it settled rows that already had a raw-block digest with the DNG reason without opening the file, read only the first 16 bytes of every other unchanged file, recorded the not-applicable reason for videos, sidecars and other non-candidates, and read in full only the files that can have image data.
+
+## Reporting
+
+| Situation | Rust | OCaml | C field |
+| --- | --- | --- | --- |
+| not requested | `None` | `Not_attempted` | empty |
+| first bytes are not a candidate | `Some(Err("not a TIFF-family file or JPEG"))` | `Failed` with the same reason | `err:…` |
+| DNG | `Some(Err("DNG: the raw-block identity applies instead"))` | `Failed` with the same reason | `err:…` |
+| file over 1 GiB | `Some(Err("file over the in-memory limit"))` | `Failed` with the same reason | `err:…` |
+| malformed file | `Some(Err(reason))` | `Failed reason` | `err:reason` |
+| success | `Some(Ok(hex))` | `Ok hex` | `ok:hex` |
+
+Typical malformed-file reasons are `unsupported TIFF header`, `image data without byte counts`, `image data outside file`, `no image data in TIFF`, `RAF CFA data outside file`, `JPEG ends before EOI` and `JPEG without a scan`. The TIFF walk has the same kind of bounds as the raw-block walk: at most 4,096 directories, 8,192 entries per directory and a million values per array. A file beyond them fails; it is never truncated into a match.
+
+## Cost
+
+Cheap. The walk reads only the directories and the offset and count tags, and the hash reads the image bytes once, from the bytes already in memory. There is no decoding. For a raw file the cost is close to one SHA-256 pass over the file.
 
 # Lightroom Classic original fingerprint
 
@@ -489,7 +592,7 @@ The preserved digest, also called the complement digest, is a hash of every byte
 
 ## Where the region comes from
 
-The region left out is found by [tiffgraph](https://github.com/firstpair/tiffgraph). phidentify's OCaml package walks each file with three tiffgraph grammars in order, from strictest to most permissive:
+The region left out is found by [tiffgraph](https://github.com/firstpair/tiffgraph). phidentify's OCaml package, with the pure-OCaml tiffgraph, and its Rust core, with tiffgraph's Rust crate when `Options::dng_semantic` is set, both walk each file with three tiffgraph grammars in order, from strictest to most permissive:
 
 | Profile reported in `dng_semantic` | tiffgraph grammar | Semantic Unison profile |
 | --- | --- | --- |
@@ -497,7 +600,7 @@ The region left out is found by [tiffgraph](https://github.com/firstpair/tiffgra
 | `dng-xmp/1` | `v1` | `org.firstpair.dng-xmp/1` |
 | `dng-xmp/2` | `merge_only` | `org.firstpair.dng-xmp/2` |
 
-The first grammar that accepts the file wins, and its name is recorded in `dng_semantic`. Accepting the file means tiffgraph found the primary XMP packet and checked that no other extent the file declares lies inside it. The maximum packet size accepted is 1 MiB.
+The first grammar that accepts the file wins, and its name is recorded in `dng_semantic` (OCaml) or `dng_semantic_profile` (Rust). Accepting the file means tiffgraph found the primary XMP packet and checked that no other extent the file declares lies inside it. The maximum packet size accepted is 1 MiB.
 
 The tiffgraph manual describes what each grammar admits. In short, `v0` admits classic TIFF with standard fields; `v1` adds BigTIFF, embedded camera profiles and the DNG 1.7 JPEG XL fields; `merge_only` adds the private fields camera converters write, kept byte-exact and never interpreted.
 
@@ -525,7 +628,7 @@ Replacing bytes inside the region leaves the digest unchanged; changing any byte
 
 ## Cross-check with Semantic Unison
 
-phidentify's implementation was cross-checked byte for byte against Semantic Unison's own `SemanticDelta.inspect` on 60 DNGs: for every file both accepted, both chose the same strictest grammar and produced the same digest, and files without a packet were refused by both.
+phidentify's implementation was cross-checked byte for byte against Semantic Unison's own `SemanticDelta.inspect` on 60 DNGs: for every file both accepted, both chose the same strictest grammar and produced the same digest, and files without a packet were refused by both. The Rust walk, added later, gave the same profiles, digests and refusals on the same 60 files.
 
 ## What equality proves
 
@@ -550,11 +653,13 @@ Use it to prove a metadata-only edit: the working copy and the backup differ, an
 | accepted | `Ok "dng-xmp/N"` | `Ok hex` | `dng-xmp/N`, digest |
 | accepted, file over 1 GiB | `Ok "dng-xmp/N"` | `Failed "file over the in-memory limit"` | profile, `!…` |
 
+A file over 1 GiB is walked from disk, not from memory: the OCaml package through its positional file reader, the Rust core through tiffgraph's `FileReader`. Both give the same profile, or the same refusal, as an in-memory walk of the same bytes; a read past the end of the file is reported as `read outside the bytes` by both. Only the preserved digest itself needs the bytes in memory.
+
 When every grammar refuses, the reason reported is the last one, from `merge_only`. Typical reasons are `not TIFF`, `missing DNGVersion` and `no XMP packet`. A refused file has **no** preserved digest; it is not a match with anything.
 
-From Rust, the preserved digest is attempted only when `preserved_regions` is given: `None` otherwise, `Some(Err)` for invalid regions or a file over the in-memory limit.
+From Rust, with `dng_semantic` set, `dng_semantic_profile` and `preserved_sha256` follow the same table: `Some(Err(reason))` and `None` for a refused file, `Some(Ok(profile))` and `Some(Ok(hex))` for an accepted one. Without it, the preserved digest is attempted only when `preserved_regions` is given: `None` otherwise, `Some(Err)` for invalid regions or a file over the in-memory limit. A library built without the `semantic` feature reports `built without the semantic feature` for the walk.
 
-The walk reads the file through its own descriptor before the Rust core reads it for hashing. The Rust stamp check covers the hashing read; a caller that cannot rule out writes between the two should compare stamps or sizes itself.
+In the OCaml package, the walk reads the file through its own descriptor before the Rust core reads it for hashing. The Rust stamp check covers the hashing read; a caller that cannot rule out writes between the two should compare stamps or sizes itself. In the Rust core, a file up to 1 GiB is walked and hashed from the same bytes in memory.
 
 ## Cost
 
@@ -562,15 +667,15 @@ A tiffgraph walk, which reads only directories and selected values and is bounde
 
 # The identities side by side
 
-| | SHA-256 | DNG raw blocks | Lightroom fingerprint | Metadata record | Preserved |
-| --- | --- | --- | --- | --- | --- |
-| Input | every byte | encoding tags, block counts and bytes of each primary raw image | decoded samples, camera model, crops, opcode lists | exiftool-rs record without location members, with engine stamp | every byte outside the primary XMP packet, with size and layout |
-| Equality proves | identical files | same encoded raw data | Classic would pair the files | same exposed metadata, same engine | only the XMP packet can differ |
-| Does not prove | — | metadata, interpretation tags, decoded or rendered equality | byte or pixel equality | anything about image data or unexposed bytes | anything about the XMP packet |
-| Applies to | every regular file | DNG, ≤ 1 GiB | supported DNG strata | any file the engine reads | DNG accepted by a tiffgraph grammar |
-| Hash | SHA-256 | SHA-256 | MD5 (Lightroom's) | SHA-256 | SHA-256 |
-| Cost | one read | parse + raw bytes | full raw decode | metadata parse | walk + one pass |
-| Feature | always | always | `lightroom` (default) | `metadata` (GPL) | always; regions from tiffgraph |
+| | SHA-256 | DNG raw blocks | Image data | Lightroom fingerprint | Metadata record | Preserved |
+| --- | --- | --- | --- | --- | --- | --- |
+| Input | every byte | encoding tags, block counts and bytes of each primary raw image | strips and tiles of every directory, RW2 raw span, RAF CFA, or JPEG frame, tables and scans | decoded samples, camera model, crops, opcode lists | exiftool-rs record without location members, with engine stamp | every byte outside the primary XMP packet, with size and layout |
+| Equality proves | identical files | same encoded raw data | same stored image bytes | Classic would pair the files | same exposed metadata, same engine | only the XMP packet can differ |
+| Does not prove | — | metadata, interpretation tags, decoded or rendered equality | metadata, decoded or rendered equality | byte or pixel equality | anything about image data or unexposed bytes | anything about the XMP packet |
+| Applies to | every regular file | DNG, ≤ 1 GiB | TIFF-family raws, TIFFs, RAF and JPEGs that are not DNGs, ≤ 1 GiB | supported DNG strata | any file the engine reads | DNG accepted by a tiffgraph grammar, ≤ 1 GiB |
+| Hash | SHA-256 | SHA-256 | SHA-256 | MD5 (Lightroom's) | SHA-256 | SHA-256 |
+| Cost | one read | parse + raw bytes | parse + image bytes | full raw decode | metadata parse | walk + one pass |
+| Feature | always | always | always | `lightroom` (default) | `metadata` (GPL) | always; the Rust walk needs `semantic` (default) |
 
 # Which identity answers which question
 
@@ -578,7 +683,7 @@ A tiffgraph walk, which reads only directories and selected values and is bounde
 
 Start with **SHA-256**. If the backup holds a file with the same SHA-256, that file is an exact copy, and nothing more needs to be said.
 
-If it does not, ask why. Compare **DNG raw blocks**: an equal raw-block digest means the backup holds the same encoded photograph, but with different bytes somewhere else. That is not yet a backup of this file. Next compare **preserved** digests under the same profile. If they are equal, the only difference is the XMP packet, and the backup plus this file's packet restores this file exactly. If they differ too, something outside the packet changed, perhaps a refreshed preview or a field a converter rewrote, and the file needs its own copy, or a verified delta such as dng-compare makes.
+If it does not, ask why. For a camera raw that is not a DNG, a TIFF or a JPEG, compare **image data**: an equal digest means the backup holds the same stored picture, with different metadata, such as a shifted capture time. For a DNG, compare **DNG raw blocks**: an equal raw-block digest means the backup holds the same encoded photograph, but with different bytes somewhere else. That is not yet a backup of this file. Next compare **preserved** digests under the same profile. If they are equal, the only difference is the XMP packet, and the backup plus this file's packet restores this file exactly. If they differ too, something outside the packet changed, perhaps a refreshed preview or a field a converter rewrote, and the file needs its own copy, or a verified delta such as dng-compare makes.
 
 A failed identity at any step means "not established". It never means "contained".
 
@@ -590,6 +695,10 @@ Compare the two versions:
 - The **metadata** digests then differ, and `metadata::diff` names the fields: a rating, a keyword, a develop setting.
 - **preserved** differs but **raw blocks** are equal: the raw data is the same, but something besides the packet changed. Look at the layout, the previews and the private fields before calling it metadata-only.
 - **raw blocks** differ: the encoded raw data changed. It may be a re-encode of the same samples, which dng-compare can decide by decoding, or a different photograph.
+
+## Is this the same shot after a capture-time shift?
+
+When the camera clock was wrong and the times were fixed afterwards, every whole-file SHA-256 changed. For DNGs, compare **raw blocks**; for other camera raws, TIFFs and JPEGs, compare **image data**. Equal values mean the stored image is the one the camera wrote, and the **metadata** diff shows the shifted time. [phindex](https://github.com/firstpair/phindex)'s `align` makes this comparison across whole archives, from their indexes.
 
 ## Is this still the original my catalog recorded?
 
@@ -607,11 +716,12 @@ If an application on the other side wrote metadata into the files on arrival, SH
 
 The tests use only synthetic files, built in memory or written to a temporary directory.
 
-- The Rust tests (31 unit tests and 4 integration tests) cover the raw-block identity ignoring XMP and placement but following every raw byte; a non-DNG TIFF and a truncated raw block reported as errors, not matches; each identity reported separately by `identify`; the preserved digest reproducing Unison's formula byte by byte and ignoring region contents; and, for the Lightroom fingerprint, crop and opcode parsing, the opcode fingerprint stream, the tiled digest and the refusal of unsupported strata.
-- The OCaml test, run in both switches, checks a non-DNG file (raw blocks and Lightroom not attempted, `dng_semantic` failed, `preserved` not attempted), a missing file reported as an error, and the pool returning forty results in input order with four workers.
+- The Rust tests (31 unit tests and 6 integration tests, with the `metadata` feature) cover the raw-block identity ignoring XMP and placement but following every raw byte; a non-DNG TIFF and a truncated raw block reported as errors, not matches; each identity reported separately by `identify`; the preserved digest reproducing Unison's formula byte by byte and ignoring region contents; image data ignoring a rewritten, longer metadata packet and moved data in a TIFF-based raw, APP segments, comments and trailing data in a JPEG, and metadata before the raw data of an RW2 and a RAF, but following every image byte, and refusing a DNG, a JPEG cut before EOI and a non-image file; and, for the Lightroom fingerprint, crop and opcode parsing, the opcode fingerprint stream, the tiled digest and the refusal of unsupported strata.
+- The OCaml test, run in both switches, checks a non-DNG file (raw blocks and Lightroom not attempted, `dng_semantic` and `image_data` failed, `preserved` not attempted), a missing file reported as an error, and the pool returning forty results in input order with four workers.
 
 ```sh
 make test
+(cd rust && cargo test --release --features metadata && cargo clippy --release --features metadata --all-targets)
 cd ocaml && opam exec --switch default -- dune test --force
 cd ocaml && opam exec --switch 5.2.0+ox -- dune test --force
 ```
@@ -623,23 +733,29 @@ Synthetic tests check the code against its definitions. They are not the qualifi
 The phidentify source is MIT. Builds link third-party code under other licences:
 
 - The default `lightroom` feature links rawler 0.8.0, under LGPL-2.1.
+- The default `semantic` feature links tiffgraph's Rust crate, under MIT.
 - The optional `metadata` feature links exiftool-rs through dng-compare's `dng-exiftool-ffi`, under GPL-3.0-or-later. A binary built with it is covered by the GPL. dng-compare's `rust-scanner/exiftool-ffi/THIRD-PARTY.md` lists the notices.
 
-A build with neither feature links only MIT and permissively licensed crates.
+A build without `lightroom` and `metadata` links only MIT and permissively licensed crates.
 
 # Reference
 
 | Item | Value |
 | --- | --- |
-| Version | 0.1.0 |
+| Version | 0.2.0 |
 | Rust | 1.99.0, edition 2024, `unsafe` forbidden in the core |
 | OCaml | 5.1 or later, stock OCaml (`Domain.spawn`) or OxCaml (`Domain.Safe.spawn`) |
-| In-memory limit | 1 GiB; larger files get SHA-256 only |
+| In-memory limit | 1 GiB; larger files get SHA-256, the DNG semantic walk from disk and the metadata record |
 | Raw-block domain | `PHIDENTIFY-DNG-ENCODED-RAW-BLOCKS-1\0` |
+| Image-data domain | `PHIDENTIFY-IMAGE-DATA-1\0` |
+| Image-data prefix | `image_data::PREFIX_LEN` = 16 bytes; `candidate` accepts `FF D8 FF`, `FUJIFILMCCD-RAW`, `II`, `MM` |
+| Image-data reasons | `NOT_APPLICABLE` = `not a TIFF-family file or JPEG`; `DNG` = `DNG: the raw-block identity applies instead` |
 | Preserved domain | `SDE/0-preserved\0` |
 | Lightroom engine revision | `native-original-digest-v5` |
 | Maximum XMP packet for the walk | 1 MiB |
-| C ABI flags | `DNG_BLOCKS` 1, `LIGHTROOM` 2, `METADATA` 4, `COMPACT_RECORD` 8 |
-| C ABI field order | sha256, raw blocks, Lightroom, metadata digest, preserved, metadata record |
+| C ABI flags | `DNG_BLOCKS` 1, `LIGHTROOM` 2, `METADATA` 4, `COMPACT_RECORD` 8, `IMAGE_DATA` 16 |
+| C ABI field order | sha256, raw blocks, Lightroom, metadata digest, preserved, metadata record, image data |
+| Rust features | `lightroom` (default), `semantic` (default), `metadata` |
 | Source | [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify) |
 | Sister projects | [dng-compare](https://github.com/firstpair/dng-compare), [tiffgraph](https://github.com/firstpair/tiffgraph), [Semantic Unison](https://github.com/querygraph/semantic-unison) |
+| Indexer | [phindex](https://github.com/firstpair/phindex) |

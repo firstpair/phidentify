@@ -53,7 +53,7 @@ val image_data_dng : string
 (** The reasons [image_data] gives for a non-candidate and for a DNG. *)
 
 val version : unit -> string
-(** e.g. ["phidentify 0.1.0 +lightroom +metadata"]. *)
+(** e.g. ["phidentify 0.2.0 +lightroom +metadata"]. *)
 
 val backend : string
 (** ["domains-stock"] (OCaml 5 [Domain.spawn]) or ["domains-oxcaml"]

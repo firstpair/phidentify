@@ -1,6 +1,6 @@
 slug: phidentify
 shelf: photography, unix
-default_edition: preview
+default_edition: full
 
 # Publication contract
 
@@ -47,23 +47,26 @@ and push `dist/`.
 
 ## Publish
 
-The title is published as a **preview** edition. Publish only this title through
-the shared FirstPair publisher, dry run first:
+The title is published as a **full** edition (`edition: full` in `book.build.json`;
+it was listed as a preview before). Publish only this title through the shared
+FirstPair publisher, dry run first:
 
 ```sh
 cd "$HOME/src/firstpair"
 npm run library:publish -- "$HOME/src/phidentify" \
   --slug phidentify --title 'phidentify' \
-  --description 'Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest, from Rust, C, OCaml and OxCaml.' \
+  --description 'Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest, from Rust, C, OCaml and OxCaml.' \
   --kicker 'Fingerprints for photos' \
   --tags photography,dng,lightroom,rust,ocaml,oxcaml \
-  --source https://github.com/firstpair/phidentify \
+  --source https://github.com/firstpair/phidentify --full \
   --dry-run --no-build --no-smoke --no-deploy --no-icloud
 ```
 
 then the same command without the dry-run flags. The shelves come from the
-`shelf:` header above; passing `--shelf` as well is refused as a conflict. Never pass `--full` without the
-user's explicit confirmation: it replaces the public preview with the full edition.
+`shelf:` header above; passing `--shelf` as well is refused as a conflict.
+`--full` selects the full edition. The first full publish replaces the public
+preview listing, so it runs only on the user's explicit confirmation; agents run
+the dry run only.
 
 Both repositories must be clean and pushed before uploading. Commit and push the
 FirstPair manifests (`book-uploads/blob-manifest.json`, `public/catalog.json`,

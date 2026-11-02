@@ -18,7 +18,7 @@ tags:
 
 Every photo archive eventually asks the same small question: is this the same photo as that one? It sounds like a yes-or-no question. It is really five questions wearing one word, and an archive gets into trouble when it answers one of them and acts as if it had answered another.
 
-[phidentify](https://github.com/firstpair/phidentify) is our answer to that. It computes several identities for a photo file, gives each one a name, and refuses to let any of them stand in for another. It is a Rust library with a C ABI and an OCaml package that builds with both stock OCaml and OxCaml. The [manual](https://firstpair.org/books/phidentify/) is now a preview on the First Pair Photography and Unix shelves.
+[phidentify](https://github.com/firstpair/phidentify) is our answer to that. It computes several identities for a photo file, gives each one a name, and refuses to let any of them stand in for another. It is a Rust library with a C ABI and an OCaml package that builds with both stock OCaml and OxCaml. The [manual](https://firstpair.org/books/phidentify/) is on the First Pair Photography and Unix shelves.
 
 ## Five questions behind one word
 
@@ -81,5 +81,35 @@ With the identities named, the archive questions get short answers. Is this file
 None of those answers is hard. What is hard is keeping them apart, especially when one of them is missing. phidentify's rule is the one that makes an archive trustworthy: a failed or missing identity is not a match, and one identity never answers for another.
 
 The [manual](https://firstpair.org/books/phidentify/) covers each identity in detail, with exact formulas, failure reporting and cost, the Rust, C and OCaml interfaces, and a worked guide to which identity answers which question. Its [PDF](https://firstpair.org/phidentify/pdf/), [EPUB](https://firstpair.org/phidentify/epub/) and [HTML](https://firstpair.org/read/phidentify/) editions are on the shelf, and the code is MIT-licensed at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
+
+## Update, 2026-11-02: phidentify 0.2.0
+
+The first version of this post described phidentify 0.1.0 and its five identities. Pointing an indexer at real archives the same day showed a gap, and phidentify 0.2.0 fills it with a sixth identity. The [manual](https://firstpair.org/books/phidentify/) now covers 0.2.0.
+
+### The camera clock was wrong
+
+Every photographer has shot a trip with the camera clock on home time, or an hour off after daylight saving, and fixed it afterwards with ExifTool or Lightroom. The fix rewrites a few bytes of EXIF in every file. The pictures are untouched, but every whole-file SHA-256 is new, and a backup check by checksum now says none of those photos is backed up.
+
+For DNGs, the raw-block identity already survived that. For everything else, phidentify had nothing between "same bytes" and "same metadata record". So it gained `image_data`: a SHA-256 of the stored image bytes only. For a TIFF or a TIFF-based raw, such as NEF, CR2, ARW, 3FR, PEF or ORF, that is the strips and tiles of every directory. For a Panasonic RW2, whose raw data has no byte counts, it is everything from RawDataOffset to the end of the file. For a Fujifilm RAF, it is the CFA section the header names. For a JPEG, it is the frame, the tables and the compressed scans, without the APP segments that hold EXIF, XMP, ICC profiles and thumbnails, without comments, and without whatever a camera appended after the end-of-image marker. It all goes under its own domain string, `PHIDENTIFY-IMAGE-DATA-1`, with every block's length bound in, and the manual gives the exact framing.
+
+We checked it on real files rather than only on synthetic ones. Shifting the capture time of a TIFF, an ARW, an RW2 and a JPEG with ExifTool changed every whole-file checksum and left every `image_data` equal. (ExifTool cannot write 3FR, so that one stayed out of the test.)
+
+### Why DNGs are refused
+
+A DNG is a TIFF too, and the obvious move would have been to hash its strips as well. But a DNG's strips include its previews, and Lightroom regenerates those when it saves metadata into the file. An image-data digest of a DNG would change on exactly the kind of edit it is meant to ignore. The raw-block identity, which looks only at the primary raw images, is the right one for DNGs, so `image_data` refuses them with a reason that says so. CR3, HEIC and other containers are refused as not applicable. As always, a refusal is not a match.
+
+### Sixteen bytes are enough to say no
+
+Adding an identity to an archive index normally means reading every file again. For most files that is wasted work: a video, a sidecar or a settings file can never have image data. So phidentify now exposes the decision itself. `image_data::candidate` looks at the first 16 bytes of a file and says whether a full read could produce image data; when it says no, the identity is known to fail with the not-applicable reason, word for word. The OCaml package has the same test as `image_data_candidate`. [phindex](https://github.com/firstpair/phindex) 0.2.0 uses it to add the new column to existing indexes: DNG rows are settled without opening the file, every other unchanged file is opened for 16 bytes, and only JPEGs, TIFF-family files and RAFs are read in full.
+
+The C ABI gained a flag, 16, and a seventh field for the new identity, after the six it already had, so existing callers keep working. The OCaml record has an `image_data` field in both the request and the result.
+
+### Large DNGs, walked from disk
+
+phidentify reads files up to 1 GiB once into memory and takes every identity from those bytes. The Rust core can now walk DNGs itself, with tiffgraph's Rust crate, using the same grammars as the OCaml package, and on the 60 DNGs we had cross-checked against Semantic Unison it gave the same profiles, digests and refusals. For a file over the limit it now walks from disk, as the OCaml package always did, so the two report the same profile or the same refusal for a multi-gigabyte file. The digests that need every byte in memory, the preserved digest and image data, still say "file over the in-memory limit" there.
+
+### What uses it
+
+The identities exist to be compared across archives, and phindex 0.2.0 does that with `phindex align`: it accounts for every photo of one indexed archive in another by its strongest shared identity, so a re-dated copy of an ARW is found by its image data, a re-keyworded DNG by its raw blocks, and an untouched file by its SHA-256, without reading a photo.
 
 *Colophon: written by Alexy Khrabrov with Claude as co-author. The ideas are Alexy's; Claude wrote the text and the code with him.*

@@ -52,7 +52,9 @@ failed, or does not apply to the file is reported as such, never as a match.
   size and region geometry bound in. The OCaml package finds the region with
   [tiffgraph](https://github.com/firstpair/tiffgraph), using the strictest of
   Unison's grammars `dng-xmp/0`, `/1` and `/2` that accepts the file, and
-  records which one. Rust callers pass regions in `Options::preserved_regions`.
+  records which one. Rust callers set `Options::dng_semantic` for the same walk
+  with tiffgraph's Rust crate (default `semantic` feature), or pass regions in
+  `Options::preserved_regions`.
 
 ## Rust
 
@@ -65,7 +67,7 @@ cargo test --release
 
 ```rust
 use phidentify::{identify, Options};
-let id = identify(path, Options { dng_blocks: true, lightroom: true, metadata: false, preserved_regions: None })?;
+let id = identify(path, Options { dng_blocks: true, lightroom: true, image_data: true, ..Options::default() })?;
 println!("{} {:?} {:?}", id.sha256, id.dng_raw_blocks_sha256, id.lightroom_digest);
 ```
 

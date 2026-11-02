@@ -1,7 +1,7 @@
 [package]
 name = "phidentify"
-version = "0.1.0"
-description = "Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, Lightroom original fingerprint, metadata record"
+version = "0.2.0"
+description = "Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, Lightroom original fingerprint, metadata record, preserved digest, image data"
 license = "MIT"
 edition = "2024"
 rust-version = "1.99"
