@@ -54,7 +54,7 @@ cargo test --release
 
 ```rust
 use phidentify::{identify, Options};
-let id = identify(path, Options { dng_blocks: true, lightroom: true, metadata: false })?;
+let id = identify(path, Options { dng_blocks: true, lightroom: true, metadata: false, preserved_regions: None })?;
 println!("{} {:?} {:?}", id.sha256, id.dng_raw_blocks_sha256, id.lightroom_digest);
 ```
 
@@ -96,6 +96,14 @@ The bounded TIFF/DNG walker that locates a DNG's editable XMP packet, shared
 with Semantic Unison, lives in its own repository, `tiffgraph` (opam
 `tiffgraph`, pure OCaml for stock OCaml and OxCaml). It briefly lived here as
 `ocaml/tiff`.
+
+## Manual
+
+The manual, [docs/phidentify-manual.md](docs/phidentify-manual.md), describes each
+identity in detail: inputs, what equality proves and does not, reporting, cost, and
+which identity answers which question. It is on the First Pair Photography shelf at
+[firstpair.org/books/phidentify](https://firstpair.org/books/phidentify/);
+`FIRSTPAIR.md` records how it is built and published.
 
 ## Licences
 

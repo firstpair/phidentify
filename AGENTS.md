@@ -18,3 +18,5 @@ local constraints.
   `opam exec --switch 5.2.0+ox -- dune test --force` in `ocaml/`.
 - The TIFF/DNG walker is `tiffgraph`, its own repository shared with Semantic
   Unison; its grammars are Unison's negotiated profiles. Don't copy it back here.
+- Publication (manual, cover, blog TextPack, First Pair shelf) follows `FIRSTPAIR.md`
+  and `~/src/firstpair/AGENTS.md`. Keep the manual in step with the code.

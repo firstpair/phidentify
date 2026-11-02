@@ -1,0 +1,11 @@
+title: phidentify
+subtitle: Fingerprints for photos
+author: Alexy Khrabrov, with Claude as co-author
+language: en-US
+lang: en-US
+publisher: First Pair Press
+rights: Copyright 2026 Alexy Khrabrov. phidentify is licensed under the MIT License.
+title_stem: phidentify
+cover_image: cover/phidentify-cover-text.png
+headboard_image: cover/phidentify-headboard.png
+description: A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml.
