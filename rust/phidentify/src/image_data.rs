@@ -24,12 +24,27 @@ use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
 const DOMAIN: &[u8] = b"PHIDENTIFY-IMAGE-DATA-1\0";
+/// The reason given for a file whose first bytes are not a candidate format.
+pub const NOT_APPLICABLE: &str = "not a TIFF-family file or JPEG";
+/// The reason given for a DNG.
+pub const DNG: &str = "DNG: the raw-block identity applies instead";
+/// How many leading bytes [`candidate`] needs.
+pub const PREFIX_LEN: usize = 16;
+
+/// Whether a file starting with `prefix` (its first [`PREFIX_LEN`] bytes, or
+/// all of a shorter file) can have an image-data identity. When false,
+/// [`sha256`] of the whole file fails with [`NOT_APPLICABLE`].
+pub fn candidate(prefix: &[u8]) -> bool {
+    prefix.starts_with(&[0xFF, 0xD8, 0xFF]) || prefix.starts_with(b"FUJIFILMCCD-RAW")
+        || (prefix.len() >= 4 && matches!(&prefix[..2], b"II" | b"MM"))
+}
 
 /// SHA-256 of the image data of an in-memory TIFF-family file or JPEG.
 pub fn sha256(f: &[u8]) -> Result<String> {
     let mut h = Sha256::new();
     h.update(DOMAIN);
-    if f.len() >= 3 && f[..3] == [0xFF, 0xD8, 0xFF] {
+    ensure!(candidate(&f[..f.len().min(PREFIX_LEN)]), NOT_APPLICABLE);
+    if f.starts_with(&[0xFF, 0xD8, 0xFF]) {
         h.update(b"J");
         jpeg(f, &mut h)?;
     } else if f.starts_with(b"FUJIFILMCCD-RAW") {
@@ -40,11 +55,9 @@ pub fn sha256(f: &[u8]) -> Result<String> {
         h.update(b"F");
         h.update(len.to_le_bytes());
         h.update(slice(f, off, len).map_err(|_| anyhow::anyhow!("RAF CFA data outside file"))?);
-    } else if f.len() >= 4 && matches!(&f[..2], b"II" | b"MM") {
+    } else {
         h.update(b"T");
         tiff(f, &mut h)?;
-    } else {
-        bail!("not a TIFF-family file or JPEG");
     }
     Ok(crate::file::hex(&h.finalize()))
 }
@@ -105,7 +118,7 @@ fn tiff(f: &[u8], h: &mut Sha256) -> Result<()> {
             Ok(None)
         };
         let has = |want: u16| (0..n as usize).any(|i| u16_at(&entries[i * entry_len..], big) == want);
-        ensure!(!has(50706), "DNG: the raw-block identity applies instead");
+        ensure!(!has(50706), DNG);
         let offsets = get(324)?.or(get(273)?);
         let counts = get(325)?.or(get(279)?);
         let sub = get(330)?;
