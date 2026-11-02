@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Architecture</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -58,8 +58,9 @@
 class="header-section-number">3</span> Architecture</h1>
 <p>phidentify is a Rust core with a C ABI, and an OCaml package over
 that ABI.</p>
-<pre class="text"><code>            Rust core (rust/phidentify)
-   sha256 · dng_blocks · lightroom · metadata · preserved
+<pre class="text"><code>                Rust core (rust/phidentify)
+ sha256 · dng_blocks · image_data · lightroom · metadata
+       semantic (tiffgraph Rust crate) · preserved
                        │
             C ABI (rust/phidentify-ffi, ocaml/lib/phidentify.h)
                        │
@@ -69,7 +70,9 @@ that ABI.</p>
 <p><strong>The Rust core</strong> (<code>rust/phidentify</code>, edition
 2024, pinned to Rust 1.99.0) holds every identity.
 <code>identify(path, Options)</code> reads the file once and takes every
-requested identity from the same bytes. The crate forbids
+requested identity from the same bytes. With its <code>semantic</code>
+feature it also walks a DNG with tiffgraph’s Rust crate, to find the
+region for the preserved digest itself. The crate forbids
 <code>unsafe</code> code.</p>
 <p><strong>The C ABI</strong> (<code>rust/phidentify-ffi</code>) exposes
 three functions, declared in <code>ocaml/lib/phidentify.h</code>. One
@@ -77,12 +80,15 @@ call returns every requested identity as a single buffer. It is built as
 a static library, <code>libphidentify_ffi.a</code>, and also as an
 rlib.</p>
 <p><strong>The OCaml package</strong> (<code>ocaml/</code>, opam name
-<code>phidentify</code>) binds that library and adds two things the Rust
-core does not do:</p>
+<code>phidentify</code>) binds that library and adds two things of its
+own:</p>
 <ul>
-<li>the <strong>tiffgraph walk</strong> that locates a DNG’s primary XMP
-packet under the strictest grammar that accepts it, which supplies the
-regions for the preserved digest;</li>
+<li>its own <strong>tiffgraph walk</strong>, with the pure-OCaml
+tiffgraph, that locates a DNG’s primary XMP packet under the strictest
+grammar that accepts it and supplies the regions for the preserved
+digest. The C ABI does not run the Rust walk; the OCaml walk and the
+Rust walk use the same grammars in the same order, with the same packet
+limit, and give the same profiles, regions and refusal reasons;</li>
 <li>a <strong>domain pool</strong> that identifies many files in
 parallel and returns results in input order.</li>
 </ul>

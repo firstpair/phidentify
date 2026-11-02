@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Building</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -127,16 +127,21 @@ class="header-section-number">4.1</span> Rust</h2>
 to 1.99.0, with rustfmt and clippy; rustup installs it on first use.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/firstpair/phidentify.git</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> phidentify/rust</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span>                                  <span class="co"># sha256, DNG raw blocks, Lightroom</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span>                                  <span class="co"># sha256, raw blocks, image data, Lightroom, DNG semantic</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span> <span class="at">--features</span> phidentify/metadata   <span class="co"># adds the metadata record</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> test <span class="at">--release</span></span></code></pre></div>
 <p>The <code>lightroom</code> feature is on by default and links <a
 href="https://crates.io/crates/rawler">rawler</a> 0.8.0 to decode raw
-samples. The <code>metadata</code> feature is off by default; it fetches
+samples. The <code>semantic</code> feature is on by default too; it
+fetches the Rust crate of <a
+href="https://github.com/firstpair/tiffgraph">tiffgraph</a> from GitHub
+at a pinned commit and lets the core walk DNGs for the preserved digest.
+The <code>metadata</code> feature is off by default; it fetches
 dng-compare’s <code>dng-exiftool-ffi</code> crate from GitHub at a
 pinned commit, and it changes the licence of the resulting binary (see
 the chapter on licences). Build without default features to get only the
-whole-file, raw-block and preserved identities:</p>
+whole-file, raw-block and image-data identities, and the preserved
+digest over regions the caller supplies:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span> <span class="at">-p</span> phidentify <span class="at">--no-default-features</span></span></code></pre></div>
 <p><code>make test</code> at the repository root runs the Rust tests,
 clippy with warnings as errors, and the OCaml tests in the current
@@ -157,8 +162,8 @@ switch you want:</p>
 <p>The switch names are examples: use your own stock OCaml switch and
 your own OxCaml switch. Test in both if you change anything the pools
 touch. The test prints the version and the backend, for example
-<code>ok phidentify 0.1.0 +lightroom domains-stock</code> under stock
-OCaml and <code>ok phidentify 0.1.0 +lightroom domains-oxcaml</code>
+<code>ok phidentify 0.2.0 +lightroom domains-stock</code> under stock
+OCaml and <code>ok phidentify 0.2.0 +lightroom domains-oxcaml</code>
 under OxCaml.</p>
 <p>To include the metadata identity in the OCaml package, build the FFI
 library with it:
@@ -188,6 +193,7 @@ that links it. To measure peak memory one identity at a time, run the
 probe example:
 <code>cargo run --release --example memprobe -- MODE FILE...</code>,
 where <code>MODE</code> is <code>sha</code>, <code>blocks</code>,
-<code>lightroom</code>, <code>metadata</code> or <code>all</code>.</p>
+<code>lightroom</code>, <code>metadata</code>, <code>image</code> or
+<code>all</code>.</p>
 </body>
 </html>

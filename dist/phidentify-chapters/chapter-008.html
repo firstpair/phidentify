@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Whole-file SHA-256</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -95,7 +95,12 @@ changes when a volume is remounted. The stamp is returned in the Rust
 class="header-section-number">7.6</span> Cost</h2>
 <p>One sequential read of the file and one SHA-256 pass. Files up to 1
 GiB are read once into memory, and every other identity is computed from
-those same bytes. Larger files are hashed in 4 MiB chunks and get only
-this identity.</p>
+those same bytes. Larger files are hashed in 4 MiB chunks. The
+identities that need the whole file in memory are then not available:
+raw blocks and the Lightroom fingerprint are not attempted, and the
+preserved digest and image data fail with
+<code>file over the in-memory limit</code>. The DNG semantic walk still
+runs, from disk, and the metadata record, which its engine reads from
+the path, is still computed.</p>
 </body>
 </html>

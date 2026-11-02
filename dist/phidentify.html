@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>phidentify</title>
   <style>
 
@@ -157,62 +157,76 @@ figcaption { font-size: .88em; font-style: italic; color: #3b5563; margin-top: .
 <li><a href="#reporting-1" id="toc-reporting-1"><span class="toc-section-number">8.5</span> Reporting</a></li>
 <li><a href="#cost-1" id="toc-cost-1"><span class="toc-section-number">8.6</span> Cost</a></li>
 </ul></li>
-<li><a href="#lightroom-classic-original-fingerprint" id="toc-lightroom-classic-original-fingerprint"><span class="toc-section-number">9</span> Lightroom Classic original
+<li><a href="#image-data" id="toc-image-data"><span class="toc-section-number">9</span> Image data</a>
+<ul>
+<li><a href="#what-goes-in-2" id="toc-what-goes-in-2"><span class="toc-section-number">9.1</span> What goes in</a></li>
+<li><a href="#what-equality-proves-2" id="toc-what-equality-proves-2"><span class="toc-section-number">9.2</span> What equality proves</a></li>
+<li><a href="#what-it-does-not-prove-2" id="toc-what-it-does-not-prove-2"><span class="toc-section-number">9.3</span> What it does not prove</a></li>
+<li><a href="#when-to-use-it-2" id="toc-when-to-use-it-2"><span class="toc-section-number">9.4</span> When to use it</a></li>
+<li><a href="#why-dngs-are-refused" id="toc-why-dngs-are-refused"><span class="toc-section-number">9.5</span> Why DNGs are refused</a></li>
+<li><a href="#deciding-from-the-first-bytes" id="toc-deciding-from-the-first-bytes"><span class="toc-section-number">9.6</span> Deciding from the first
+bytes</a></li>
+<li><a href="#reporting-2" id="toc-reporting-2"><span class="toc-section-number">9.7</span> Reporting</a></li>
+<li><a href="#cost-2" id="toc-cost-2"><span class="toc-section-number">9.8</span> Cost</a></li>
+</ul></li>
+<li><a href="#lightroom-classic-original-fingerprint" id="toc-lightroom-classic-original-fingerprint"><span class="toc-section-number">10</span> Lightroom Classic original
 fingerprint</a>
 <ul>
-<li><a href="#what-it-is" id="toc-what-it-is"><span class="toc-section-number">9.1</span> What it is</a></li>
-<li><a href="#what-goes-in-2" id="toc-what-goes-in-2"><span class="toc-section-number">9.2</span> What goes in</a></li>
-<li><a href="#supported-strata" id="toc-supported-strata"><span class="toc-section-number">9.3</span> Supported strata</a></li>
-<li><a href="#qualification" id="toc-qualification"><span class="toc-section-number">9.4</span> Qualification</a></li>
-<li><a href="#what-equality-proves-2" id="toc-what-equality-proves-2"><span class="toc-section-number">9.5</span> What equality proves</a></li>
-<li><a href="#what-it-does-not-prove-2" id="toc-what-it-does-not-prove-2"><span class="toc-section-number">9.6</span> What it does not prove</a></li>
-<li><a href="#when-to-use-it-2" id="toc-when-to-use-it-2"><span class="toc-section-number">9.7</span> When to use it</a></li>
-<li><a href="#reporting-2" id="toc-reporting-2"><span class="toc-section-number">9.8</span> Reporting</a></li>
-<li><a href="#cost-2" id="toc-cost-2"><span class="toc-section-number">9.9</span> Cost</a></li>
+<li><a href="#what-it-is" id="toc-what-it-is"><span class="toc-section-number">10.1</span> What it is</a></li>
+<li><a href="#what-goes-in-3" id="toc-what-goes-in-3"><span class="toc-section-number">10.2</span> What goes in</a></li>
+<li><a href="#supported-strata" id="toc-supported-strata"><span class="toc-section-number">10.3</span> Supported strata</a></li>
+<li><a href="#qualification" id="toc-qualification"><span class="toc-section-number">10.4</span> Qualification</a></li>
+<li><a href="#what-equality-proves-3" id="toc-what-equality-proves-3"><span class="toc-section-number">10.5</span> What equality proves</a></li>
+<li><a href="#what-it-does-not-prove-3" id="toc-what-it-does-not-prove-3"><span class="toc-section-number">10.6</span> What it does not prove</a></li>
+<li><a href="#when-to-use-it-3" id="toc-when-to-use-it-3"><span class="toc-section-number">10.7</span> When to use it</a></li>
+<li><a href="#reporting-3" id="toc-reporting-3"><span class="toc-section-number">10.8</span> Reporting</a></li>
+<li><a href="#cost-3" id="toc-cost-3"><span class="toc-section-number">10.9</span> Cost</a></li>
 </ul></li>
-<li><a href="#metadata-record" id="toc-metadata-record"><span class="toc-section-number">10</span> Metadata record</a>
+<li><a href="#metadata-record" id="toc-metadata-record"><span class="toc-section-number">11</span> Metadata record</a>
 <ul>
-<li><a href="#what-goes-in-3" id="toc-what-goes-in-3"><span class="toc-section-number">10.1</span> What goes in</a></li>
-<li><a href="#what-equality-proves-3" id="toc-what-equality-proves-3"><span class="toc-section-number">10.2</span> What equality proves</a></li>
-<li><a href="#what-it-does-not-prove-3" id="toc-what-it-does-not-prove-3"><span class="toc-section-number">10.3</span> What it does not prove</a></li>
-<li><a href="#when-to-use-it-3" id="toc-when-to-use-it-3"><span class="toc-section-number">10.4</span> When to use it</a></li>
-<li><a href="#compact-records-and-diffs" id="toc-compact-records-and-diffs"><span class="toc-section-number">10.5</span> Compact records and
+<li><a href="#what-goes-in-4" id="toc-what-goes-in-4"><span class="toc-section-number">11.1</span> What goes in</a></li>
+<li><a href="#what-equality-proves-4" id="toc-what-equality-proves-4"><span class="toc-section-number">11.2</span> What equality proves</a></li>
+<li><a href="#what-it-does-not-prove-4" id="toc-what-it-does-not-prove-4"><span class="toc-section-number">11.3</span> What it does not prove</a></li>
+<li><a href="#when-to-use-it-4" id="toc-when-to-use-it-4"><span class="toc-section-number">11.4</span> When to use it</a></li>
+<li><a href="#compact-records-and-diffs" id="toc-compact-records-and-diffs"><span class="toc-section-number">11.5</span> Compact records and
 diffs</a></li>
-<li><a href="#reporting-3" id="toc-reporting-3"><span class="toc-section-number">10.6</span> Reporting</a></li>
-<li><a href="#cost-3" id="toc-cost-3"><span class="toc-section-number">10.7</span> Cost</a></li>
-<li><a href="#licence" id="toc-licence"><span class="toc-section-number">10.8</span> Licence</a></li>
+<li><a href="#reporting-4" id="toc-reporting-4"><span class="toc-section-number">11.6</span> Reporting</a></li>
+<li><a href="#cost-4" id="toc-cost-4"><span class="toc-section-number">11.7</span> Cost</a></li>
+<li><a href="#licence" id="toc-licence"><span class="toc-section-number">11.8</span> Licence</a></li>
 </ul></li>
-<li><a href="#preserved-digest" id="toc-preserved-digest"><span class="toc-section-number">11</span> Preserved digest</a>
+<li><a href="#preserved-digest" id="toc-preserved-digest"><span class="toc-section-number">12</span> Preserved digest</a>
 <ul>
-<li><a href="#what-it-is-1" id="toc-what-it-is-1"><span class="toc-section-number">11.1</span> What it is</a></li>
-<li><a href="#where-the-region-comes-from" id="toc-where-the-region-comes-from"><span class="toc-section-number">11.2</span> Where the region comes
+<li><a href="#what-it-is-1" id="toc-what-it-is-1"><span class="toc-section-number">12.1</span> What it is</a></li>
+<li><a href="#where-the-region-comes-from" id="toc-where-the-region-comes-from"><span class="toc-section-number">12.2</span> Where the region comes
 from</a></li>
-<li><a href="#the-formula" id="toc-the-formula"><span class="toc-section-number">11.3</span> The formula</a></li>
-<li><a href="#cross-check-with-semantic-unison" id="toc-cross-check-with-semantic-unison"><span class="toc-section-number">11.4</span> Cross-check with Semantic
+<li><a href="#the-formula" id="toc-the-formula"><span class="toc-section-number">12.3</span> The formula</a></li>
+<li><a href="#cross-check-with-semantic-unison" id="toc-cross-check-with-semantic-unison"><span class="toc-section-number">12.4</span> Cross-check with Semantic
 Unison</a></li>
-<li><a href="#what-equality-proves-4" id="toc-what-equality-proves-4"><span class="toc-section-number">11.5</span> What equality proves</a></li>
-<li><a href="#what-it-does-not-prove-4" id="toc-what-it-does-not-prove-4"><span class="toc-section-number">11.6</span> What it does not prove</a></li>
-<li><a href="#when-to-use-it-4" id="toc-when-to-use-it-4"><span class="toc-section-number">11.7</span> When to use it</a></li>
-<li><a href="#reporting-4" id="toc-reporting-4"><span class="toc-section-number">11.8</span> Reporting</a></li>
-<li><a href="#cost-4" id="toc-cost-4"><span class="toc-section-number">11.9</span> Cost</a></li>
+<li><a href="#what-equality-proves-5" id="toc-what-equality-proves-5"><span class="toc-section-number">12.5</span> What equality proves</a></li>
+<li><a href="#what-it-does-not-prove-5" id="toc-what-it-does-not-prove-5"><span class="toc-section-number">12.6</span> What it does not prove</a></li>
+<li><a href="#when-to-use-it-5" id="toc-when-to-use-it-5"><span class="toc-section-number">12.7</span> When to use it</a></li>
+<li><a href="#reporting-5" id="toc-reporting-5"><span class="toc-section-number">12.8</span> Reporting</a></li>
+<li><a href="#cost-5" id="toc-cost-5"><span class="toc-section-number">12.9</span> Cost</a></li>
 </ul></li>
-<li><a href="#the-identities-side-by-side" id="toc-the-identities-side-by-side"><span class="toc-section-number">12</span> The identities side by
+<li><a href="#the-identities-side-by-side" id="toc-the-identities-side-by-side"><span class="toc-section-number">13</span> The identities side by
 side</a></li>
-<li><a href="#which-identity-answers-which-question" id="toc-which-identity-answers-which-question"><span class="toc-section-number">13</span> Which identity answers which
+<li><a href="#which-identity-answers-which-question" id="toc-which-identity-answers-which-question"><span class="toc-section-number">14</span> Which identity answers which
 question</a>
 <ul>
-<li><a href="#is-this-file-in-my-backup" id="toc-is-this-file-in-my-backup"><span class="toc-section-number">13.1</span> Is this file in my
+<li><a href="#is-this-file-in-my-backup" id="toc-is-this-file-in-my-backup"><span class="toc-section-number">14.1</span> Is this file in my
 backup?</a></li>
-<li><a href="#was-this-only-a-metadata-edit" id="toc-was-this-only-a-metadata-edit"><span class="toc-section-number">13.2</span> Was this only a metadata
+<li><a href="#was-this-only-a-metadata-edit" id="toc-was-this-only-a-metadata-edit"><span class="toc-section-number">14.2</span> Was this only a metadata
 edit?</a></li>
-<li><a href="#is-this-still-the-original-my-catalog-recorded" id="toc-is-this-still-the-original-my-catalog-recorded"><span class="toc-section-number">13.3</span> Is this still the original my
+<li><a href="#is-this-the-same-shot-after-a-capture-time-shift" id="toc-is-this-the-same-shot-after-a-capture-time-shift"><span class="toc-section-number">14.3</span> Is this the same shot after a
+capture-time shift?</a></li>
+<li><a href="#is-this-still-the-original-my-catalog-recorded" id="toc-is-this-still-the-original-my-catalog-recorded"><span class="toc-section-number">14.4</span> Is this still the original my
 catalog recorded?</a></li>
-<li><a href="#did-the-shuttle-copy-arrive-intact" id="toc-did-the-shuttle-copy-arrive-intact"><span class="toc-section-number">13.4</span> Did the shuttle copy arrive
+<li><a href="#did-the-shuttle-copy-arrive-intact" id="toc-did-the-shuttle-copy-arrive-intact"><span class="toc-section-number">14.5</span> Did the shuttle copy arrive
 intact?</a></li>
 </ul></li>
-<li><a href="#testing" id="toc-testing"><span class="toc-section-number">14</span> Testing</a></li>
-<li><a href="#licences" id="toc-licences"><span class="toc-section-number">15</span> Licences</a></li>
-<li><a href="#reference" id="toc-reference"><span class="toc-section-number">16</span> Reference</a></li>
+<li><a href="#testing" id="toc-testing"><span class="toc-section-number">15</span> Testing</a></li>
+<li><a href="#licences" id="toc-licences"><span class="toc-section-number">16</span> Licences</a></li>
+<li><a href="#reference" id="toc-reference"><span class="toc-section-number">17</span> Reference</a></li>
 </ul>
 </nav>
 <figure>
@@ -223,7 +237,7 @@ intact?</a></li>
 <p>This manual is by Alexy Khrabrov, with Claude as co-author. The ideas
 and decisions are Alexy’s; Claude wrote the text and the code with
 him.</p>
-<p>It describes phidentify 0.1.0 as of 2026-11-02. phidentify is
+<p>It describes phidentify 0.2.0 as of 2026-11-02. phidentify is
 licensed under the MIT License; some optional builds link code under
 other licences, as the chapter on licences explains. Its source is at <a href="https://github.com/firstpair/phidentify">github.com/firstpair/phidentify</a>.</p>
 <p>Every example in this manual uses synthetic files or generic paths.
@@ -279,19 +293,27 @@ photo file, each answering one question:</p>
 </tr>
 <tr>
 <td>Preserved (complement) digest</td>
-<td><code>preserved_sha256</code></td>
+<td><code>preserved_sha256</code>, with
+<code>dng_semantic_profile</code></td>
 <td><code>preserved</code>, with <code>dng_semantic</code></td>
 <td>every byte outside the primary XMP packet is equal, at the same size
 and layout</td>
+</tr>
+<tr>
+<td>Image data</td>
+<td><code>image_data_sha256</code></td>
+<td><code>image_data</code></td>
+<td>the same stored image bytes, in a camera raw, TIFF or JPEG that is
+not a DNG</td>
 </tr>
 </tbody>
 </table>
 <p>Three rules hold for every identity, in every interface:</p>
 <ol type="1">
 <li><strong>They are separate.</strong> One identity never stands in for
-another. Equal raw blocks are not equal bytes; an equal Lightroom
-fingerprint is not equal pixels; an equal metadata record says nothing
-about image data.</li>
+another. Equal raw blocks are not equal bytes; equal image data is not
+equal metadata; an equal Lightroom fingerprint is not equal pixels; an
+equal metadata record says nothing about image data.</li>
 <li><strong>A missing identity is not a match.</strong> An identity that
 was not requested, does not apply to the file, or failed, is reported as
 such. Two files that both failed an identity have not matched on
@@ -332,6 +354,15 @@ shelf</a>.</li>
 </ul>
 <p>phidentify itself computes identities and nothing else. It does not
 compare trees, write files, touch catalogs, or synchronize anything.</p>
+<p>Comparing trees is the job of its main consumer, <strong><a href="https://github.com/firstpair/phindex">phindex</a></strong>, which
+keeps every phidentify identity of every file under a directory tree in
+a resumable SQLite index. Since its version 0.2.0,
+<code>phindex align</code> accounts for the files of one indexed archive
+in another by these identities rather than by name, so copies that were
+moved, renamed, re-dated or had other metadata edited are still found.
+phindex also uses the image-data prefix test described below to add the
+image-data identity to an existing index without reading most files
+again. Its manual is on the <a href="https://firstpair.org/books/phindex/">First Pair shelf</a>.</p>
 <h2 data-number="2.2" id="what-it-is-not"><span class="header-section-number">2.2</span> What it is not</h2>
 <ul>
 <li><strong>Not a rendering identity.</strong> No identity here says
@@ -350,8 +381,9 @@ stored. It does not call Adobe code.</li>
 <h1 data-number="3" id="architecture"><span class="header-section-number">3</span> Architecture</h1>
 <p>phidentify is a Rust core with a C ABI, and an OCaml package over
 that ABI.</p>
-<pre class="text"><code>            Rust core (rust/phidentify)
-   sha256 · dng_blocks · lightroom · metadata · preserved
+<pre class="text"><code>                Rust core (rust/phidentify)
+ sha256 · dng_blocks · image_data · lightroom · metadata
+       semantic (tiffgraph Rust crate) · preserved
                        │
             C ABI (rust/phidentify-ffi, ocaml/lib/phidentify.h)
                        │
@@ -361,7 +393,9 @@ that ABI.</p>
 <p><strong>The Rust core</strong> (<code>rust/phidentify</code>, edition
 2024, pinned to Rust 1.99.0) holds every identity.
 <code>identify(path, Options)</code> reads the file once and takes every
-requested identity from the same bytes. The crate forbids
+requested identity from the same bytes. With its <code>semantic</code>
+feature it also walks a DNG with tiffgraph’s Rust crate, to find the
+region for the preserved digest itself. The crate forbids
 <code>unsafe</code> code.</p>
 <p><strong>The C ABI</strong> (<code>rust/phidentify-ffi</code>) exposes
 three functions, declared in <code>ocaml/lib/phidentify.h</code>. One
@@ -369,12 +403,15 @@ call returns every requested identity as a single buffer. It is built as
 a static library, <code>libphidentify_ffi.a</code>, and also as an
 rlib.</p>
 <p><strong>The OCaml package</strong> (<code>ocaml/</code>, opam name
-<code>phidentify</code>) binds that library and adds two things the Rust
-core does not do:</p>
+<code>phidentify</code>) binds that library and adds two things of its
+own:</p>
 <ul>
-<li>the <strong>tiffgraph walk</strong> that locates a DNG’s primary XMP
-packet under the strictest grammar that accepts it, which supplies the
-regions for the preserved digest;</li>
+<li>its own <strong>tiffgraph walk</strong>, with the pure-OCaml
+tiffgraph, that locates a DNG’s primary XMP packet under the strictest
+grammar that accepts it and supplies the regions for the preserved
+digest. The C ABI does not run the Rust walk; the OCaml walk and the
+Rust walk use the same grammars in the same order, with the same packet
+limit, and give the same profiles, regions and refusal reasons;</li>
 <li>a <strong>domain pool</strong> that identifies many files in
 parallel and returns results in input order.</li>
 </ul>
@@ -404,15 +441,19 @@ alike.</p>
 to 1.99.0, with rustfmt and clippy; rustup installs it on first use.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/firstpair/phidentify.git</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> phidentify/rust</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span>                                  <span class="co"># sha256, DNG raw blocks, Lightroom</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span>                                  <span class="co"># sha256, raw blocks, image data, Lightroom, DNG semantic</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span> <span class="at">--features</span> phidentify/metadata   <span class="co"># adds the metadata record</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> test <span class="at">--release</span></span></code></pre></div>
 <p>The <code>lightroom</code> feature is on by default and links <a href="https://crates.io/crates/rawler">rawler</a> 0.8.0 to decode raw
-samples. The <code>metadata</code> feature is off by default; it fetches
+samples. The <code>semantic</code> feature is on by default too; it
+fetches the Rust crate of <a href="https://github.com/firstpair/tiffgraph">tiffgraph</a> from GitHub
+at a pinned commit and lets the core walk DNGs for the preserved digest.
+The <code>metadata</code> feature is off by default; it fetches
 dng-compare’s <code>dng-exiftool-ffi</code> crate from GitHub at a
 pinned commit, and it changes the licence of the resulting binary (see
 the chapter on licences). Build without default features to get only the
-whole-file, raw-block and preserved identities:</p>
+whole-file, raw-block and image-data identities, and the preserved
+digest over regions the caller supplies:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--release</span> <span class="at">-p</span> phidentify <span class="at">--no-default-features</span></span></code></pre></div>
 <p><code>make test</code> at the repository root runs the Rust tests,
 clippy with warnings as errors, and the OCaml tests in the current
@@ -432,8 +473,8 @@ switch you want:</p>
 <p>The switch names are examples: use your own stock OCaml switch and
 your own OxCaml switch. Test in both if you change anything the pools
 touch. The test prints the version and the backend, for example
-<code>ok phidentify 0.1.0 +lightroom domains-stock</code> under stock
-OCaml and <code>ok phidentify 0.1.0 +lightroom domains-oxcaml</code>
+<code>ok phidentify 0.2.0 +lightroom domains-stock</code> under stock
+OCaml and <code>ok phidentify 0.2.0 +lightroom domains-oxcaml</code>
 under OxCaml.</p>
 <p>To include the metadata identity in the OCaml package, build the FFI
 library with it:
@@ -462,13 +503,14 @@ that links it. To measure peak memory one identity at a time, run the
 probe example:
 <code>cargo run --release --example memprobe -- MODE FILE...</code>,
 where <code>MODE</code> is <code>sha</code>, <code>blocks</code>,
-<code>lightroom</code>, <code>metadata</code> or <code>all</code>.</p>
+<code>lightroom</code>, <code>metadata</code>, <code>image</code> or
+<code>all</code>.</p>
 <h1 data-number="5" id="using-it"><span class="header-section-number">5</span> Using it</h1>
 <h2 data-number="5.1" id="rust-1"><span class="header-section-number">5.1</span> Rust</h2>
 <div class="sourceCode" id="cb6"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">phidentify::</span><span class="op">{</span>identify<span class="op">,</span> Options<span class="op">};</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::path::</span><span class="dt">Path</span><span class="op">;</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> opts <span class="op">=</span> Options <span class="op">{</span> dng_blocks<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> lightroom<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> metadata<span class="op">:</span> <span class="cn">false</span><span class="op">,</span> preserved_regions<span class="op">:</span> <span class="cn">None</span> <span class="op">};</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> opts <span class="op">=</span> Options <span class="op">{</span> dng_blocks<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> lightroom<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> image_data<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> <span class="op">..</span><span class="pp">Options::</span><span class="kw">default</span>() <span class="op">};</span></span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> id <span class="op">=</span> identify(<span class="pp">Path::</span>new(<span class="st">&quot;photo.dng&quot;</span>)<span class="op">,</span> opts)<span class="op">?;</span></span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="pp">println!</span>(<span class="st">&quot;{}&quot;</span><span class="op">,</span> id<span class="op">.</span>sha256)<span class="op">;</span></span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="cf">match</span> <span class="op">&amp;</span>id<span class="op">.</span>dng_raw_blocks_sha256 <span class="op">{</span></span>
@@ -476,7 +518,8 @@ where <code>MODE</code> is <code>sha</code>, <code>blocks</code>,
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Some</span>(<span class="cn">Ok</span>(digest)) <span class="op">=&gt;</span> <span class="pp">println!</span>(<span class="st">&quot;raw blocks: {digest}&quot;</span>)<span class="op">,</span></span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Some</span>(<span class="cn">Err</span>(reason)) <span class="op">=&gt;</span> <span class="pp">println!</span>(<span class="st">&quot;raw blocks failed: {reason}&quot;</span>)<span class="op">,</span></span>
 <span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>Options</code> has one switch per optional identity:</p>
+<p><code>Options</code> has one switch per optional identity, and
+derives <code>Default</code> with every switch off:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> Options <span class="op">{</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_blocks<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> lightroom<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
@@ -484,7 +527,12 @@ where <code>MODE</code> is <code>sha</code>, <code>blocks</code>,
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Editable regions found by a tiffgraph walk; when given, the</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// `SDE/0-preserved` complement digest is computed over the same bytes.</span></span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> preserved_regions<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Vec</span><span class="op">&lt;</span>(<span class="dt">u64</span><span class="op">,</span> <span class="dt">u64</span>)<span class="op">&gt;&gt;,</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Walk the bytes with tiffgraph (strictest of dng-xmp/0, /1, /2)</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// and take `preserved_regions` from it; needs the `semantic` feature.</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The whole-file SHA-256 is always computed. <code>identify</code>
 returns <code>Result&lt;Identity&gt;</code>:</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> Identity <span class="op">{</span></span>
@@ -494,33 +542,57 @@ returns <code>Result&lt;Identity&gt;</code>:</p>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> lightroom_digest<span class="op">:</span> Outcome<span class="op">,</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_digest<span class="op">:</span> Outcome<span class="op">,</span></span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> preserved_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic_profile<span class="op">:</span> Outcome<span class="op">,</span>   <span class="co">// Ok(profile) of the accepting grammar</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
 <p><code>Outcome</code> has three states: <code>None</code> when the
 identity was not attempted, <code>Some(Ok(value))</code>, and
 <code>Some(Err(reason))</code> when it failed or does not apply. The
 chapter on reporting lists exactly which happens when.</p>
-<p>The Rust core does not walk TIFF graphs for the preserved digest. A
-Rust caller passes the regions in
+<p>For the preserved digest a Rust caller has two choices:</p>
+<ul>
+<li>Set <code>dng_semantic: true</code>. The core walks the file with
+tiffgraph’s Rust crate, using the same three grammars in the same order
+as the OCaml package, records the accepting grammar in
+<code>dng_semantic_profile</code>, and computes
+<code>preserved_sha256</code> over the packet it found.
+<code>phidentify::semantic::strictest(bytes)</code> is that walk over
+bytes in memory. For a file over the in-memory limit, the core walks it
+from disk instead, with tiffgraph’s positional <code>FileReader</code>
+(<code>semantic::strictest_file(path)</code>), as the OCaml package’s
+file reader does, so both report the same profile or the same refusal;
+the preserved digest itself then fails with
+<code>file over the in-memory limit</code>. When the walk refuses the
+file, <code>dng_semantic_profile</code> holds the reason and
+<code>preserved_sha256</code> is <code>None</code>.</li>
+<li>Leave <code>dng_semantic</code> off and pass the regions in
 <code>Options::preserved_regions</code>, as sorted, disjoint
 <code>(offset, length)</code> pairs inside the file, obtained from a
 tiffgraph walk or from Semantic Unison.
 <code>phidentify::file::preserved_sha256(bytes, regions)</code> computes
-the same digest over bytes already in memory.</p>
-<p>The <code>identify</code> example prints one JSON line per
-argument:</p>
+the same digest over bytes already in memory.</li>
+</ul>
+<p>The <code>identify</code> example requests every identity the build
+supports, including the DNG semantic walk and image data, and prints one
+JSON line per argument:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">--release</span> <span class="at">--example</span> identify <span class="at">--</span> photo.dng notes.txt</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">--release</span> <span class="at">--features</span> phidentify/metadata <span class="at">--example</span> identify <span class="at">--</span> photo.dng</span></code></pre></div>
-<p>On a synthetic text file, a truncated TIFF and a missing path it
-prints (shortened with …):</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="er">…,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;c63c33f0…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;notes.txt&quot;</span><span class="fu">}</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;No DNG raw image found&quot;</span><span class="fu">},</span><span class="er">…</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;tiny.tif&quot;</span><span class="fu">}</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;error&quot;</span><span class="fu">:</span><span class="st">&quot;stat missing: No such file or directory (os error 2)&quot;</span><span class="fu">,</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;missing&quot;</span><span class="fu">}</span></span></code></pre></div>
+<p>On a synthetic text file, a 14-byte TIFF with one empty directory and
+a missing path it prints (without the stamp, the digests shortened with
+…):</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;dng_semantic_profile&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;not TIFF&quot;</span><span class="fu">},</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;image_data_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;not a TIFF-family file or JPEG&quot;</span><span class="fu">},</span><span class="dt">&quot;lightroom_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metadata_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;preserved_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;c5e496e7…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;notes.txt&quot;</span><span class="fu">}</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;TIFF offset outside file&quot;</span><span class="fu">},</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dng_semantic_profile&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;missing DNGVersion&quot;</span><span class="fu">},</span><span class="dt">&quot;image_data_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;no image data in TIFF&quot;</span><span class="fu">},</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lightroom_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;metadata_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;preserved_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;5b8de6f0…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;tiny.tif&quot;</span><span class="fu">}</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;error&quot;</span><span class="fu">:</span><span class="st">&quot;stat missing: No such file or directory (os error 2)&quot;</span><span class="fu">,</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;missing&quot;</span><span class="fu">}</span></span></code></pre></div>
 <p>In JSON, <code>null</code> is not attempted, <code>{&quot;Ok&quot;: …}</code>
-is a value and <code>{&quot;Err&quot;: …}</code> is a failure. The example never
-passes preserved regions, so <code>preserved_sha256</code> is always
-<code>null</code> there.</p>
+is a value and <code>{&quot;Err&quot;: …}</code> is a failure.
+<code>preserved_sha256</code> stays <code>null</code> when the walk
+refuses the file; for a DNG a grammar accepts, it holds the digest.</p>
 <h2 data-number="5.2" id="ocaml-and-oxcaml-1"><span class="header-section-number">5.2</span> OCaml and OxCaml</h2>
 <p>The OCaml interface is the same under stock OCaml and OxCaml.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> outcome = Not_attempted | <span class="dt">Ok</span> <span class="kw">of</span> <span class="dt">string</span> | Failed <span class="kw">of</span> <span class="dt">string</span></span>
@@ -533,21 +605,26 @@ passes preserved regions, so <code>preserved_sha256</code> is always
 <span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  dng_semantic : outcome;  <span class="co">(* Ok profile *)</span></span>
 <span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  preserved : outcome;</span>
 <span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  metadata_record : <span class="dt">string</span> <span class="dt">option</span>;</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span> }</span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
-<p><code>all</code> requests every identity and leaves
-<code>compact_record</code> off. A request field that the linked library
-does not support, such as <code>metadata</code> without the
-<code>metadata</code> feature, comes back as
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  image_data : outcome;</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span>; image_data : <span class="dt">bool</span> }</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_candidate : <span class="dt">string</span> -&gt; <span class="dt">bool</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_prefix_len : <span class="dt">int</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_not_applicable : <span class="dt">string</span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_dng : <span class="dt">string</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
+<p><code>all</code> requests every identity, <code>image_data</code>
+included, and leaves <code>compact_record</code> off. A request field
+that the linked library does not support, such as <code>metadata</code>
+without the <code>metadata</code> feature, comes back as
 <code>Failed &quot;built without the metadata feature&quot;</code>, not as
 <code>Not_attempted</code>.</p>
 <p><code>dng_semantic = true</code> runs the tiffgraph walk and, when it
@@ -562,6 +639,13 @@ accepted the file, and <code>preserved</code> the digest.</p>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>   | <span class="dt">Ok</span> profile, <span class="dt">Ok</span> digest -&gt; <span class="dt">Printf</span>.printf <span class="st">&quot;%s %s</span><span class="ch">\n</span><span class="st">&quot;</span> profile digest</span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>   | Failed reason, _ -&gt; <span class="dt">Printf</span>.printf <span class="st">&quot;no preserved digest: %s</span><span class="ch">\n</span><span class="st">&quot;</span> reason</span>
 <span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>   | _ -&gt; ())</span></code></pre></div>
+<p><code>image_data</code> is the image-data identity, reported like the
+others. <code>image_data_candidate</code>,
+<code>image_data_prefix_len</code> and the two reason strings are the
+OCaml counterparts of the Rust <code>image_data::candidate</code>,
+<code>PREFIX_LEN</code>, <code>NOT_APPLICABLE</code> and
+<code>DNG</code>, and give the same answers; the chapter on image data
+explains how an indexer uses them.</p>
 <p><code>identify_all ~workers paths</code> identifies a list in
 parallel and returns the results in input order. It raises
 <code>Invalid_argument</code> when <code>workers &lt; 1</code>, and it
@@ -573,23 +657,26 @@ prints one tab-separated line per file, in argument order:</p>
 <pre class="text"><code>path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved</code></pre>
 <p>Each identity column is the value, <code>-</code> when not attempted,
 or <code>!reason</code> when it failed. The command never requests the
-metadata identity, so that column is always <code>-</code>. A file that
-cannot be identified at all gets a two-column line, <code>path</code>,
-then <code>!reason</code>. <code>-j N</code> sets the number of workers;
-the default is <code>recommended_workers ()</code>.</p>
-<p>On a synthetic text file and a truncated TIFF:</p>
-<pre class="text"><code>notes.txt  c63c33f0…  -                        -  -  !not TIFF            -
-tiny.tif   b44eca9f…  !No DNG raw image found  -  -  !missing DNGVersion  -</code></pre>
+metadata identity, so that column is always <code>-</code>. It does not
+print the image-data identity; use the library, or the Rust
+<code>identify</code> example, for that. A file that cannot be
+identified at all gets a two-column line, <code>path</code>, then
+<code>!reason</code>. <code>-j N</code> sets the number of workers; the
+default is <code>recommended_workers ()</code>.</p>
+<p>On the same synthetic text file and TIFF:</p>
+<pre class="text"><code>notes.txt  c5e496e7…  -                          -  -  !not TIFF            -
+tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -</code></pre>
 <h2 data-number="5.4" id="the-c-abi"><span class="header-section-number">5.4</span> The C ABI</h2>
 <div class="sourceCode" id="cb15"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_DNG_BLOCKS </span><span class="dv">1</span><span class="bu">u</span></span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_LIGHTROOM </span><span class="dv">2</span><span class="bu">u</span></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_METADATA </span><span class="dv">4</span><span class="bu">u</span></span>
 <span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_COMPACT_RECORD </span><span class="dv">8</span><span class="bu">u</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_IMAGE_DATA </span><span class="dv">16</span><span class="bu">u</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
 <p><code>path</code> is a byte string of <code>path_len</code> bytes,
 not NUL-terminated. <code>regions</code> holds <code>n_regions</code>
 pairs of <code>(offset, length)</code>, or is <code>NULL</code> when no
@@ -621,17 +708,20 @@ preserved digest is wanted.</p>
 </tr>
 </tbody>
 </table>
-<p>With status 0, <code>out</code> holds six fields separated by NUL
+<p>With status 0, <code>out</code> holds seven fields separated by NUL
 bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata
-digest, preserved digest, metadata record JSON. Each field is
+digest, preserved digest, metadata record JSON, image data. The
+image-data field is filled only when <code>PHIDENTIFY_IMAGE_DATA</code>
+(16) is set in <code>flags</code>; it was added as the seventh field so
+that the first six keep their places. Each field is
 <code>ok:&lt;value&gt;</code>, <code>err:&lt;reason&gt;</code>, or empty
 when not attempted. Free every <code>out</code> buffer exactly once with
 <code>phidentify_free(out, out_len)</code>.</p>
 <p><code>phidentify_version</code> returns a string such as
-<code>phidentify 0.1.0 +lightroom +metadata</code>, naming the features
+<code>phidentify 0.2.0 +lightroom +metadata</code>, naming the features
 the library was built with.</p>
 <h1 data-number="6" id="the-identities"><span class="header-section-number">6</span> The identities</h1>
-<p>The five chapters that follow describe each identity in the same
+<p>The six chapters that follow describe each identity in the same
 order: what goes in, what equality proves and what it does not, when to
 use it, how it reports failure and not-applicable, and what it
 costs.</p>
@@ -669,8 +759,13 @@ changes when a volume is remounted. The stamp is returned in the Rust
 <h2 data-number="7.6" id="cost"><span class="header-section-number">7.6</span> Cost</h2>
 <p>One sequential read of the file and one SHA-256 pass. Files up to 1
 GiB are read once into memory, and every other identity is computed from
-those same bytes. Larger files are hashed in 4 MiB chunks and get only
-this identity.</p>
+those same bytes. Larger files are hashed in 4 MiB chunks. The
+identities that need the whole file in memory are then not available:
+raw blocks and the Lightroom fingerprint are not attempted, and the
+preserved digest and image data fail with
+<code>file over the in-memory limit</code>. The DNG semantic walk still
+runs, from disk, and the metadata record, which its engine reads from
+the path, is still computed.</p>
 <h1 data-number="8" id="dng-encoded-raw-blocks"><span class="header-section-number">8</span> DNG encoded raw blocks</h1>
 <h2 data-number="8.1" id="what-goes-in-1"><span class="header-section-number">8.1</span> What goes in</h2>
 <p>The encoded primary raw images of a DNG, exactly as stored, without
@@ -798,9 +893,193 @@ match.</p>
 the hash reads the raw blocks once, from the bytes already in memory.
 There is no decoding. For a typical DNG the cost is close to one SHA-256
 pass over the raw data.</p>
-<h1 data-number="9" id="lightroom-classic-original-fingerprint"><span class="header-section-number">9</span> Lightroom Classic original
+<h1 data-number="9" id="image-data"><span class="header-section-number">9</span> Image data</h1>
+<h2 data-number="9.1" id="what-goes-in-2"><span class="header-section-number">9.1</span> What goes in</h2>
+<p>The stored image bytes of a camera raw, TIFF or JPEG that is not a
+DNG, and nothing else. Which bytes those are depends on the format,
+which phidentify recognizes from the first bytes of the file:</p>
+<ul>
+<li><strong>TIFF family.</strong> Classic TIFF and BigTIFF, and the
+camera raws built on TIFF: NEF, CR2, ARW, 3FR, PEF, ORF, the RW2 header
+and others. phidentify walks the chain of directories from the header
+and every SubIFD, in walk order, and takes from <strong>every</strong>
+directory that has them the strip or tile payloads named by its offsets
+and byte counts (TileOffsets and TileByteCounts, or StripOffsets and
+StripByteCounts). Every directory counts, not just the primary raw
+image: thumbnails and previews stored as strips or tiles are part of
+it.</li>
+<li><strong>Panasonic RW2.</strong> Its raw data has no byte counts.
+When a directory has neither strip nor tile offsets but has
+RawDataOffset (tag 280), the span from that offset to the end of the
+file is taken.</li>
+<li><strong>Fujifilm RAF.</strong> The header, which starts with
+<code>FUJIFILMCCD-RAW</code>, names the CFA section by its offset and
+length, big-endian at bytes 100 and 104. That section is taken.</li>
+<li><strong>JPEG.</strong> The primary image’s frame, tables and
+entropy-coded scans: every segment after SOI up to EOI except the APPn
+segments (EXIF, XMP, ICC profiles, thumbnails, MPF) and comments.
+Trailing data after EOI, where some cameras put further images, is left
+out.</li>
+</ul>
+<p>The digest is SHA-256 over a domain string, a format letter and the
+bytes in a fixed framing. All integers are unsigned 64-bit
+little-endian:</p>
+<pre class="text"><code>&quot;PHIDENTIFY-IMAGE-DATA-1\0&quot;
+‖ &quot;T&quot; ‖ byte-order byte (1 for big-endian)                    -- TIFF family, RW2
+     ‖ for each directory with image data, in walk order:
+         u64le directory number (1, 2, …) ‖ u64le block count
+       ‖ for each strip or tile: u64le byte count ‖ bytes
+‖ &quot;F&quot; ‖ u64le CFA length ‖ CFA bytes                           -- RAF
+‖ &quot;J&quot; ‖ for each segment after SOI, up to EOI, except APPn and COM:
+         the segment as stored (marker, length, body)
+       ‖ after each SOS segment: u64le scan length ‖ scan bytes
+     ‖ FF D9                                                   -- JPEG</code></pre>
+<p>An RW2’s raw span is framed as one directory with one block. A JPEG’s
+scan bytes are hashed as stored, with their stuffed <code>FF 00</code>
+bytes and restart markers; standalone restart markers and fill bytes
+between segments are skipped. Offsets are never hashed, so image data
+that moved inside the file keeps the digest.</p>
+<p>The domain string names the definition. If what it covers ever
+changes, the domain string changes with it.</p>
+<h2 data-number="9.2" id="what-equality-proves-2"><span class="header-section-number">9.2</span> What equality proves</h2>
+<p>Equal digests mean the two files store the same image bytes, in the
+same order and the same framing: the same strips and tiles, the same raw
+span, the same CFA section, or the same JPEG frame, tables and scans.
+The photograph as the camera or converter encoded it is the same.</p>
+<p>On real files, an ExifTool capture-time shift changed the whole-file
+SHA-256 of TIFF, ARW, RW2 and JPEG files and left their image data
+equal. (ExifTool cannot write 3FR, so that format was not part of the
+check.)</p>
+<h2 data-number="9.3" id="what-it-does-not-prove-2"><span class="header-section-number">9.3</span> What it does not prove</h2>
+<ul>
+<li><strong>Not metadata equality.</strong> EXIF, maker notes, XMP,
+IPTC, ICC profiles and comments are left out, and so are directory
+entries that do not name image data. Two files with equal image data can
+have different capture times, keywords and ratings.</li>
+<li><strong>Not decoded-pixel equality.</strong> The same picture
+re-encoded, re-compressed, re-tiled or saved with another byte order
+gets a different digest. So does a file whose preview strips were
+rewritten, because those strips are image data.</li>
+<li><strong>Not a raw-block identity.</strong> For DNGs, use the
+raw-block identity. The two are separate identities with separate domain
+strings, and a non-DNG file never has a raw-block digest.</li>
+</ul>
+<h2 data-number="9.4" id="when-to-use-it-2"><span class="header-section-number">9.4</span> When to use it</h2>
+<p>Use it to match copies of non-DNG camera files and JPEGs whose
+metadata was edited. The commonest such edit is a capture-time shift,
+made because the camera clock was wrong or set to another time zone: it
+rewrites a few bytes of EXIF in every file, every whole-file SHA-256
+changes, and a byte comparison says nothing is backed up. With image
+data, the shifted copy and the original still agree. The same holds for
+keywords, ratings or copyright written into a JPEG’s APP segments.</p>
+<h2 data-number="9.5" id="why-dngs-are-refused"><span class="header-section-number">9.5</span> Why DNGs are refused</h2>
+<p>A DNG is a TIFF, and its strips include its previews. Lightroom
+Classic regenerates a DNG’s previews when it saves metadata into the
+file, so an image-data digest of a DNG would change on a metadata edit,
+which is the change it is meant to survive. The raw-block identity
+already answers the question for DNGs, over the primary raw images only.
+So a TIFF-family file with a DNGVersion tag in any directory is refused
+with the reason
+<code>DNG: the raw-block identity applies instead</code>.</p>
+<p>CR3, HEIC and other ISO-BMFF or unknown containers are refused as not
+applicable.</p>
+<h2 data-number="9.6" id="deciding-from-the-first-bytes"><span class="header-section-number">9.6</span> Deciding from the first
+bytes</h2>
+<p>Whether a file can have image data is decided by its first 16 bytes.
+<code>image_data::candidate(prefix)</code> in Rust and
+<code>Phidentify.image_data_candidate</code> in OCaml take the first
+<code>image_data::PREFIX_LEN</code> (<code>image_data_prefix_len</code>,
+16) bytes of a file, or all of a shorter file, and return true when they
+start like a JPEG (<code>FF D8 FF</code>), a RAF
+(<code>FUJIFILMCCD-RAW</code>) or a TIFF-family file (<code>II</code> or
+<code>MM</code>, with at least four bytes).</p>
+<p>When <code>candidate</code> is false, the full identity fails with
+exactly <code>image_data::NOT_APPLICABLE</code>
+(<code>image_data_not_applicable</code>),
+<code>not a TIFF-family file or JPEG</code>, so a caller can record that
+outcome without reading the rest of the file. When it is true, only a
+full read can tell: a DNG fails with <code>image_data::DNG</code>
+(<code>image_data_dng</code>), and a malformed file with its own
+reason.</p>
+<p>This exists for indexers. When phindex 0.2.0 added the image-data
+column to existing indexes, it settled rows that already had a raw-block
+digest with the DNG reason without opening the file, read only the first
+16 bytes of every other unchanged file, recorded the not-applicable
+reason for videos, sidecars and other non-candidates, and read in full
+only the files that can have image data.</p>
+<h2 data-number="9.7" id="reporting-2"><span class="header-section-number">9.7</span> Reporting</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Rust</th>
+<th>OCaml</th>
+<th>C field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>not requested</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td>first bytes are not a candidate</td>
+<td><code>Some(Err(&quot;not a TIFF-family file or JPEG&quot;))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>DNG</td>
+<td><code>Some(Err(&quot;DNG: the raw-block identity applies instead&quot;))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>file over 1 GiB</td>
+<td><code>Some(Err(&quot;file over the in-memory limit&quot;))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>malformed file</td>
+<td><code>Some(Err(reason))</code></td>
+<td><code>Failed reason</code></td>
+<td><code>err:reason</code></td>
+</tr>
+<tr>
+<td>success</td>
+<td><code>Some(Ok(hex))</code></td>
+<td><code>Ok hex</code></td>
+<td><code>ok:hex</code></td>
+</tr>
+</tbody>
+</table>
+<p>Typical malformed-file reasons are
+<code>unsupported TIFF header</code>,
+<code>image data without byte counts</code>,
+<code>image data outside file</code>,
+<code>no image data in TIFF</code>,
+<code>RAF CFA data outside file</code>,
+<code>JPEG ends before EOI</code> and <code>JPEG without a scan</code>.
+The TIFF walk has the same kind of bounds as the raw-block walk: at most
+4,096 directories, 8,192 entries per directory and a million values per
+array. A file beyond them fails; it is never truncated into a match.</p>
+<h2 data-number="9.8" id="cost-2"><span class="header-section-number">9.8</span> Cost</h2>
+<p>Cheap. The walk reads only the directories and the offset and count
+tags, and the hash reads the image bytes once, from the bytes already in
+memory. There is no decoding. For a raw file the cost is close to one
+SHA-256 pass over the file.</p>
+<h1 data-number="10" id="lightroom-classic-original-fingerprint"><span class="header-section-number">10</span> Lightroom Classic original
 fingerprint</h1>
-<h2 data-number="9.1" id="what-it-is"><span class="header-section-number">9.1</span> What it is</h2>
+<h2 data-number="10.1" id="what-it-is"><span class="header-section-number">10.1</span> What it is</h2>
 <p>Lightroom Classic stores a fingerprint of each original file in its
 catalog, in the <code>digest</code> column of the
 <code>AgLibraryFileDigest</code> table. phidentify computes that value
@@ -809,7 +1088,7 @@ catalog without Lightroom.</p>
 <p>It is an <strong>independent reimplementation</strong>. It contains
 no Adobe code, and it was qualified only by comparing its output with
 values Lightroom Classic itself had stored.</p>
-<h2 data-number="9.2" id="what-goes-in-2"><span class="header-section-number">9.2</span> What goes in</h2>
+<h2 data-number="10.2" id="what-goes-in-3"><span class="header-section-number">10.2</span> What goes in</h2>
 <p>At the level the source shows, the fingerprint has two layers:</p>
 <ol type="1">
 <li><strong>A raw-image digest.</strong> The raw samples are decoded
@@ -829,7 +1108,7 @@ which returns the intermediate values: the raw-image digest, a SHA-256
 of the wrapper inputs, and the engine revision name,
 <code>native-original-digest-v5</code>. Those are for diagnosis; the
 identity is the final digest.</p>
-<h2 data-number="9.3" id="supported-strata"><span class="header-section-number">9.3</span> Supported strata</h2>
+<h2 data-number="10.3" id="supported-strata"><span class="header-section-number">10.3</span> Supported strata</h2>
 <p>The fingerprint is computed only for DNGs that are:</p>
 <ul>
 <li>integer-sampled,</li>
@@ -842,7 +1121,7 @@ FixVignetteRadial and FixBadPixelsConstant.</li>
 <p>Every other file is an error with a reason, never a guessed value.
 JPEG files, camera-native raw files and DNG strata outside that list are
 not implemented.</p>
-<h2 data-number="9.4" id="qualification"><span class="header-section-number">9.4</span> Qualification</h2>
+<h2 data-number="10.4" id="qualification"><span class="header-section-number">10.4</span> Qualification</h2>
 <p>On 2026-11-01, 60 randomly chosen DNGs from a Lightroom Classic 15
 catalog were fingerprinted. All 60 matched the fingerprints Lightroom
 Classic had stored for them.</p>
@@ -850,24 +1129,24 @@ Classic had stored for them.</p>
 above, as Lightroom Classic 15 computed them. Extending the fingerprint
 to another format needs native values from Lightroom for that format
 first.</p>
-<h2 data-number="9.5" id="what-equality-proves-2"><span class="header-section-number">9.5</span> What equality proves</h2>
+<h2 data-number="10.5" id="what-equality-proves-3"><span class="header-section-number">10.5</span> What equality proves</h2>
 <p>An equal digest means Lightroom Classic’s original matcher would pair
 the two files, or would accept the file as the original a catalog entry
 recorded. Compare it together with the file size, which Classic stores
 beside it.</p>
-<h2 data-number="9.6" id="what-it-does-not-prove-2"><span class="header-section-number">9.6</span> What it does not prove</h2>
+<h2 data-number="10.6" id="what-it-does-not-prove-3"><span class="header-section-number">10.6</span> What it does not prove</h2>
 <p>It is native-matcher correspondence, not byte equality and not pixel
 equality. Two files with equal fingerprints can differ in metadata,
 previews and layout. MD5 is used because that is what Lightroom uses;
 the value is a compatibility identity, not a cryptographic one, and
 should not be relied on against deliberately crafted files.</p>
-<h2 data-number="9.7" id="when-to-use-it-2"><span class="header-section-number">9.7</span> When to use it</h2>
+<h2 data-number="10.7" id="when-to-use-it-3"><span class="header-section-number">10.7</span> When to use it</h2>
 <p>Use it to check a file against a Lightroom Classic catalog: is this
 the original the catalog thinks it is, which file on disk does this
 catalog entry correspond to, did a restore bring back the file Classic
 expects. Read the catalog’s stored values from a copy, never from a
 catalog Classic has open, and never write them.</p>
-<h2 data-number="9.8" id="reporting-2"><span class="header-section-number">9.8</span> Reporting</h2>
+<h2 data-number="10.8" id="reporting-3"><span class="header-section-number">10.8</span> Reporting</h2>
 <p>The fingerprint is attempted only when it is requested and the file
 parsed as a DNG with a primary raw image, the same gate as the raw-block
 identity. Otherwise it is not attempted (<code>None</code>,
@@ -878,13 +1157,13 @@ with the raw directory, or a change to the file while it is read. A
 library built without the <code>lightroom</code> feature reports
 <code>built without the lightroom feature</code> as a failure for every
 DNG.</p>
-<h2 data-number="9.9" id="cost-2"><span class="header-section-number">9.9</span> Cost</h2>
+<h2 data-number="10.9" id="cost-3"><span class="header-section-number">10.9</span> Cost</h2>
 <p>The most expensive identity by far. It reads the file again from its
 path and fully decodes the raw image, so it costs CPU in proportion to
 the sensor size and holds the decoded samples in memory, two bytes per
 sample. Request it only when the question is about Lightroom.</p>
-<h1 data-number="10" id="metadata-record"><span class="header-section-number">10</span> Metadata record</h1>
-<h2 data-number="10.1" id="what-goes-in-3"><span class="header-section-number">10.1</span> What goes in</h2>
+<h1 data-number="11" id="metadata-record"><span class="header-section-number">11</span> Metadata record</h1>
+<h2 data-number="11.1" id="what-goes-in-4"><span class="header-section-number">11.1</span> What goes in</h2>
 <p>The file’s metadata as read by dng-compare’s <strong>exiftool-rs
 engine</strong> (<code>dng-exiftool-ffi</code>), an in-process Rust
 metadata reader. The record is one ExifTool-shaped JSON object,
@@ -907,20 +1186,20 @@ where the file sits rather than what it contains:
 digest, so records from different engines, or from different versions of
 the engine, never compare equal. They are separate identities, and
 records from Perl ExifTool are another identity again.</p>
-<h2 data-number="10.2" id="what-equality-proves-3"><span class="header-section-number">10.2</span> What equality proves</h2>
+<h2 data-number="11.2" id="what-equality-proves-4"><span class="header-section-number">11.2</span> What equality proves</h2>
 <p>Equal digests mean the engine produced the same metadata record for
 both files, apart from location members.</p>
-<h2 data-number="10.3" id="what-it-does-not-prove-3"><span class="header-section-number">10.3</span> What it does not prove</h2>
+<h2 data-number="11.3" id="what-it-does-not-prove-4"><span class="header-section-number">11.3</span> What it does not prove</h2>
 <p>Nothing about image data: two different photographs can share a
 record if the engine sees the same fields. Nor does it cover every byte
 of metadata: fields the engine does not decode, padding, and the bytes
 of embedded previews are outside it. It is a description of the metadata
 the engine exposes, not a byte identity of the metadata. To prove that
 only the metadata packet changed, use the preserved digest.</p>
-<h2 data-number="10.4" id="when-to-use-it-3"><span class="header-section-number">10.4</span> When to use it</h2>
+<h2 data-number="11.4" id="when-to-use-it-4"><span class="header-section-number">11.4</span> When to use it</h2>
 <p>Use it to group files by metadata, to detect metadata-only edits,
 and, with <code>diff</code>, to say exactly which fields changed.</p>
-<h2 data-number="10.5" id="compact-records-and-diffs"><span class="header-section-number">10.5</span> Compact records and diffs</h2>
+<h2 data-number="11.5" id="compact-records-and-diffs"><span class="header-section-number">11.5</span> Compact records and diffs</h2>
 <p>The full record is available too: <code>metadata_json</code> in Rust,
 <code>metadata_record</code> in OCaml.</p>
 <ul>
@@ -937,7 +1216,7 @@ difference is <code>(key, left value, right value)</code>, with
 <code>None</code> on a side where the member is absent. Nested
 structures are compared as whole values.</li>
 </ul>
-<h2 data-number="10.6" id="reporting-3"><span class="header-section-number">10.6</span> Reporting</h2>
+<h2 data-number="11.6" id="reporting-4"><span class="header-section-number">11.6</span> Reporting</h2>
 <table>
 <colgroup>
 <col style="width: 25%" />
@@ -985,28 +1264,31 @@ member in its record. phidentify turns that member into a failure. It is
 never treated as an empty record, and two failed files never share a
 digest.</p>
 <p>The metadata identity is attempted for any file, not only DNGs.</p>
-<h2 data-number="10.7" id="cost-3"><span class="header-section-number">10.7</span> Cost</h2>
+<h2 data-number="11.7" id="cost-4"><span class="header-section-number">11.7</span> Cost</h2>
 <p>Moderate. The engine reads the file again from its path and decodes
 its metadata structures; the record can be large when it holds long
 strings, which is why <code>compact</code> exists. It does not decode
 image data.</p>
-<h2 data-number="10.8" id="licence"><span class="header-section-number">10.8</span> Licence</h2>
+<h2 data-number="11.8" id="licence"><span class="header-section-number">11.8</span> Licence</h2>
 <p>The <code>metadata</code> feature links exiftool-rs, which is
 GPL-3.0-or-later. A binary built with it is covered by the GPL. See the
 chapter on licences.</p>
-<h1 data-number="11" id="preserved-digest"><span class="header-section-number">11</span> Preserved digest</h1>
-<h2 data-number="11.1" id="what-it-is-1"><span class="header-section-number">11.1</span> What it is</h2>
+<h1 data-number="12" id="preserved-digest"><span class="header-section-number">12</span> Preserved digest</h1>
+<h2 data-number="12.1" id="what-it-is-1"><span class="header-section-number">12.1</span> What it is</h2>
 <p>The preserved digest, also called the complement digest, is a hash of
 every byte of a DNG <strong>outside</strong> its primary XMP packet,
 with the file’s size and the packet’s position bound in. Two files with
 equal preserved digests can differ only inside that packet. It is
 Semantic Unison’s <code>SDE/0-preserved</code> hash, which Unison uses
 to prove that a metadata transfer changed nothing else.</p>
-<h2 data-number="11.2" id="where-the-region-comes-from"><span class="header-section-number">11.2</span> Where the region comes
+<h2 data-number="12.2" id="where-the-region-comes-from"><span class="header-section-number">12.2</span> Where the region comes
 from</h2>
 <p>The region left out is found by <a href="https://github.com/firstpair/tiffgraph">tiffgraph</a>.
-phidentify’s OCaml package walks each file with three tiffgraph grammars
-in order, from strictest to most permissive:</p>
+phidentify’s OCaml package, with the pure-OCaml tiffgraph, and its Rust
+core, with tiffgraph’s Rust crate when
+<code>Options::dng_semantic</code> is set, both walk each file with
+three tiffgraph grammars in order, from strictest to most
+permissive:</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -1039,7 +1321,8 @@ in order, from strictest to most permissive:</p>
 </tbody>
 </table>
 <p>The first grammar that accepts the file wins, and its name is
-recorded in <code>dng_semantic</code>. Accepting the file means
+recorded in <code>dng_semantic</code> (OCaml) or
+<code>dng_semantic_profile</code> (Rust). Accepting the file means
 tiffgraph found the primary XMP packet and checked that no other extent
 the file declares lies inside it. The maximum packet size accepted is 1
 MiB.</p>
@@ -1048,7 +1331,7 @@ MiB.</p>
 <code>v1</code> adds BigTIFF, embedded camera profiles and the DNG 1.7
 JPEG XL fields; <code>merge_only</code> adds the private fields camera
 converters write, kept byte-exact and never interpreted.</p>
-<h2 data-number="11.3" id="the-formula"><span class="header-section-number">11.3</span> The formula</h2>
+<h2 data-number="12.3" id="the-formula"><span class="header-section-number">12.3</span> The formula</h2>
 <p>With every integer an unsigned 64-bit big-endian number:</p>
 <pre class="text"><code>SHA-256( &quot;SDE/0-preserved\0&quot;
        ‖ u64be size
@@ -1067,14 +1350,15 @@ length 9 hashes</p>
 <p>Replacing bytes inside the region leaves the digest unchanged;
 changing any byte outside it changes the digest. Regions must be sorted,
 disjoint and inside the file, or the digest fails.</p>
-<h2 data-number="11.4" id="cross-check-with-semantic-unison"><span class="header-section-number">11.4</span> Cross-check with Semantic
+<h2 data-number="12.4" id="cross-check-with-semantic-unison"><span class="header-section-number">12.4</span> Cross-check with Semantic
 Unison</h2>
 <p>phidentify’s implementation was cross-checked byte for byte against
 Semantic Unison’s own <code>SemanticDelta.inspect</code> on 60 DNGs: for
 every file both accepted, both chose the same strictest grammar and
 produced the same digest, and files without a packet were refused by
-both.</p>
-<h2 data-number="11.5" id="what-equality-proves-4"><span class="header-section-number">11.5</span> What equality proves</h2>
+both. The Rust walk, added later, gave the same profiles, digests and
+refusals on the same 60 files.</p>
+<h2 data-number="12.5" id="what-equality-proves-5"><span class="header-section-number">12.5</span> What equality proves</h2>
 <p>Equal preserved digests, <strong>under the same profile</strong>,
 mean that every byte outside the primary XMP packet is equal, and that
 the packet sits at the same offset with the same length. The files can
@@ -1084,20 +1368,20 @@ depends on the grammar through the region it returns, and a file
 accepted by <code>dng-xmp/2</code> that a stricter peer refuses has no
 <code>dng-xmp/0</code> digest at all. Compare <code>dng_semantic</code>
 before comparing <code>preserved</code>.</p>
-<h2 data-number="11.6" id="what-it-does-not-prove-4"><span class="header-section-number">11.6</span> What it does not prove</h2>
+<h2 data-number="12.6" id="what-it-does-not-prove-5"><span class="header-section-number">12.6</span> What it does not prove</h2>
 <p>Anything about the XMP packet. Two files with equal preserved digests
 can have completely different keywords, ratings and develop settings. It
 also does not cover a file whose packet changed size: a longer packet
 moves the gaps and changes the digest, even if nothing else changed.
 That is deliberate. Semantic Unison treats such a rewrite as a different
 operation.</p>
-<h2 data-number="11.7" id="when-to-use-it-4"><span class="header-section-number">11.7</span> When to use it</h2>
+<h2 data-number="12.7" id="when-to-use-it-5"><span class="header-section-number">12.7</span> When to use it</h2>
 <p>Use it to prove a metadata-only edit: the working copy and the backup
 differ, and you want to know whether only the XMP packet changed. With
 equal preserved digests, the backup plus the working copy’s packet is
 the working copy. This is the identity a synchronizer needs before it
 sends metadata without image bytes.</p>
-<h2 data-number="11.8" id="reporting-4"><span class="header-section-number">11.8</span> Reporting</h2>
+<h2 data-number="12.8" id="reporting-5"><span class="header-section-number">12.8</span> Reporting</h2>
 <table>
 <colgroup>
 <col style="width: 25%" />
@@ -1140,39 +1424,55 @@ sends metadata without image bytes.</p>
 </tr>
 </tbody>
 </table>
+<p>A file over 1 GiB is walked from disk, not from memory: the OCaml
+package through its positional file reader, the Rust core through
+tiffgraph’s <code>FileReader</code>. Both give the same profile, or the
+same refusal, as an in-memory walk of the same bytes; a read past the
+end of the file is reported as <code>read outside the bytes</code> by
+both. Only the preserved digest itself needs the bytes in memory.</p>
 <p>When every grammar refuses, the reason reported is the last one, from
 <code>merge_only</code>. Typical reasons are <code>not TIFF</code>,
 <code>missing DNGVersion</code> and <code>no XMP packet</code>. A
 refused file has <strong>no</strong> preserved digest; it is not a match
 with anything.</p>
-<p>From Rust, the preserved digest is attempted only when
-<code>preserved_regions</code> is given: <code>None</code> otherwise,
-<code>Some(Err)</code> for invalid regions or a file over the in-memory
-limit.</p>
-<p>The walk reads the file through its own descriptor before the Rust
-core reads it for hashing. The Rust stamp check covers the hashing read;
-a caller that cannot rule out writes between the two should compare
-stamps or sizes itself.</p>
-<h2 data-number="11.9" id="cost-4"><span class="header-section-number">11.9</span> Cost</h2>
+<p>From Rust, with <code>dng_semantic</code> set,
+<code>dng_semantic_profile</code> and <code>preserved_sha256</code>
+follow the same table: <code>Some(Err(reason))</code> and
+<code>None</code> for a refused file, <code>Some(Ok(profile))</code> and
+<code>Some(Ok(hex))</code> for an accepted one. Without it, the
+preserved digest is attempted only when <code>preserved_regions</code>
+is given: <code>None</code> otherwise, <code>Some(Err)</code> for
+invalid regions or a file over the in-memory limit. A library built
+without the <code>semantic</code> feature reports
+<code>built without the semantic feature</code> for the walk.</p>
+<p>In the OCaml package, the walk reads the file through its own
+descriptor before the Rust core reads it for hashing. The Rust stamp
+check covers the hashing read; a caller that cannot rule out writes
+between the two should compare stamps or sizes itself. In the Rust core,
+a file up to 1 GiB is walked and hashed from the same bytes in
+memory.</p>
+<h2 data-number="12.9" id="cost-5"><span class="header-section-number">12.9</span> Cost</h2>
 <p>A tiffgraph walk, which reads only directories and selected values
 and is bounded by tiffgraph’s limits, then one SHA-256 pass over the
 file from the bytes already in memory. About the cost of the whole-file
 SHA-256.</p>
-<h1 data-number="12" id="the-identities-side-by-side"><span class="header-section-number">12</span> The identities side by side</h1>
+<h1 data-number="13" id="the-identities-side-by-side"><span class="header-section-number">13</span> The identities side by side</h1>
 <table style="width:99%;">
 <colgroup>
-<col style="width: 16%" />
-<col style="width: 16%" />
-<col style="width: 16%" />
-<col style="width: 16%" />
-<col style="width: 16%" />
-<col style="width: 16%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
 </colgroup>
 <thead>
 <tr>
 <th></th>
 <th>SHA-256</th>
 <th>DNG raw blocks</th>
+<th>Image data</th>
 <th>Lightroom fingerprint</th>
 <th>Metadata record</th>
 <th>Preserved</th>
@@ -1183,6 +1483,8 @@ SHA-256.</p>
 <td>Input</td>
 <td>every byte</td>
 <td>encoding tags, block counts and bytes of each primary raw image</td>
+<td>strips and tiles of every directory, RW2 raw span, RAF CFA, or JPEG
+frame, tables and scans</td>
 <td>decoded samples, camera model, crops, opcode lists</td>
 <td>exiftool-rs record without location members, with engine stamp</td>
 <td>every byte outside the primary XMP packet, with size and layout</td>
@@ -1191,6 +1493,7 @@ SHA-256.</p>
 <td>Equality proves</td>
 <td>identical files</td>
 <td>same encoded raw data</td>
+<td>same stored image bytes</td>
 <td>Classic would pair the files</td>
 <td>same exposed metadata, same engine</td>
 <td>only the XMP packet can differ</td>
@@ -1199,6 +1502,7 @@ SHA-256.</p>
 <td>Does not prove</td>
 <td>—</td>
 <td>metadata, interpretation tags, decoded or rendered equality</td>
+<td>metadata, decoded or rendered equality</td>
 <td>byte or pixel equality</td>
 <td>anything about image data or unexposed bytes</td>
 <td>anything about the XMP packet</td>
@@ -1207,12 +1511,15 @@ SHA-256.</p>
 <td>Applies to</td>
 <td>every regular file</td>
 <td>DNG, ≤ 1 GiB</td>
+<td>TIFF-family raws, TIFFs, RAF and JPEGs that are not DNGs, ≤ 1
+GiB</td>
 <td>supported DNG strata</td>
 <td>any file the engine reads</td>
-<td>DNG accepted by a tiffgraph grammar</td>
+<td>DNG accepted by a tiffgraph grammar, ≤ 1 GiB</td>
 </tr>
 <tr>
 <td>Hash</td>
+<td>SHA-256</td>
 <td>SHA-256</td>
 <td>SHA-256</td>
 <td>MD5 (Lightroom’s)</td>
@@ -1223,6 +1530,7 @@ SHA-256.</p>
 <td>Cost</td>
 <td>one read</td>
 <td>parse + raw bytes</td>
+<td>parse + image bytes</td>
 <td>full raw decode</td>
 <td>metadata parse</td>
 <td>walk + one pass</td>
@@ -1231,31 +1539,36 @@ SHA-256.</p>
 <td>Feature</td>
 <td>always</td>
 <td>always</td>
+<td>always</td>
 <td><code>lightroom</code> (default)</td>
 <td><code>metadata</code> (GPL)</td>
-<td>always; regions from tiffgraph</td>
+<td>always; the Rust walk needs <code>semantic</code> (default)</td>
 </tr>
 </tbody>
 </table>
-<h1 data-number="13" id="which-identity-answers-which-question"><span class="header-section-number">13</span> Which identity answers which
+<h1 data-number="14" id="which-identity-answers-which-question"><span class="header-section-number">14</span> Which identity answers which
 question</h1>
-<h2 data-number="13.1" id="is-this-file-in-my-backup"><span class="header-section-number">13.1</span> Is this file in my
+<h2 data-number="14.1" id="is-this-file-in-my-backup"><span class="header-section-number">14.1</span> Is this file in my
 backup?</h2>
 <p>Start with <strong>SHA-256</strong>. If the backup holds a file with
 the same SHA-256, that file is an exact copy, and nothing more needs to
 be said.</p>
-<p>If it does not, ask why. Compare <strong>DNG raw blocks</strong>: an
-equal raw-block digest means the backup holds the same encoded
-photograph, but with different bytes somewhere else. That is not yet a
-backup of this file. Next compare <strong>preserved</strong> digests
-under the same profile. If they are equal, the only difference is the
-XMP packet, and the backup plus this file’s packet restores this file
-exactly. If they differ too, something outside the packet changed,
-perhaps a refreshed preview or a field a converter rewrote, and the file
-needs its own copy, or a verified delta such as dng-compare makes.</p>
+<p>If it does not, ask why. For a camera raw that is not a DNG, a TIFF
+or a JPEG, compare <strong>image data</strong>: an equal digest means
+the backup holds the same stored picture, with different metadata, such
+as a shifted capture time. For a DNG, compare <strong>DNG raw
+blocks</strong>: an equal raw-block digest means the backup holds the
+same encoded photograph, but with different bytes somewhere else. That
+is not yet a backup of this file. Next compare
+<strong>preserved</strong> digests under the same profile. If they are
+equal, the only difference is the XMP packet, and the backup plus this
+file’s packet restores this file exactly. If they differ too, something
+outside the packet changed, perhaps a refreshed preview or a field a
+converter rewrote, and the file needs its own copy, or a verified delta
+such as dng-compare makes.</p>
 <p>A failed identity at any step means “not established”. It never means
 “contained”.</p>
-<h2 data-number="13.2" id="was-this-only-a-metadata-edit"><span class="header-section-number">13.2</span> Was this only a metadata
+<h2 data-number="14.2" id="was-this-only-a-metadata-edit"><span class="header-section-number">14.2</span> Was this only a metadata
 edit?</h2>
 <p>Compare the two versions:</p>
 <ul>
@@ -1272,7 +1585,17 @@ calling it metadata-only.</li>
 may be a re-encode of the same samples, which dng-compare can decide by
 decoding, or a different photograph.</li>
 </ul>
-<h2 data-number="13.3" id="is-this-still-the-original-my-catalog-recorded"><span class="header-section-number">13.3</span> Is this still the original my
+<h2 data-number="14.3" id="is-this-the-same-shot-after-a-capture-time-shift"><span class="header-section-number">14.3</span> Is this the same shot after a
+capture-time shift?</h2>
+<p>When the camera clock was wrong and the times were fixed afterwards,
+every whole-file SHA-256 changed. For DNGs, compare <strong>raw
+blocks</strong>; for other camera raws, TIFFs and JPEGs, compare
+<strong>image data</strong>. Equal values mean the stored image is the
+one the camera wrote, and the <strong>metadata</strong> diff shows the
+shifted time. <a href="https://github.com/firstpair/phindex">phindex</a>’s
+<code>align</code> makes this comparison across whole archives, from
+their indexes.</p>
+<h2 data-number="14.4" id="is-this-still-the-original-my-catalog-recorded"><span class="header-section-number">14.4</span> Is this still the original my
 catalog recorded?</h2>
 <p>Compute the <strong>Lightroom fingerprint</strong> and compare it,
 with the file size, against the <code>AgLibraryFileDigest.digest</code>
@@ -1283,7 +1606,7 @@ the supported strata gives no answer from phidentify; it does not give a
 <p>SHA-256 cannot answer this question, because the catalog does not
 store one, and because Classic’s own value deliberately survives
 metadata written into the file.</p>
-<h2 data-number="13.4" id="did-the-shuttle-copy-arrive-intact"><span class="header-section-number">13.4</span> Did the shuttle copy arrive
+<h2 data-number="14.5" id="did-the-shuttle-copy-arrive-intact"><span class="header-section-number">14.5</span> Did the shuttle copy arrive
 intact?</h2>
 <p>When files travel on a portable drive or across a network and come
 back, the question is about bytes, so the answer is
@@ -1295,46 +1618,54 @@ arrival, SHA-256 will differ. The <strong>preserved</strong> digest then
 tells you whether the image data and layout arrived intact and only the
 packet changed, and the <strong>metadata</strong> diff tells you what
 was written.</p>
-<h1 data-number="14" id="testing"><span class="header-section-number">14</span> Testing</h1>
+<h1 data-number="15" id="testing"><span class="header-section-number">15</span> Testing</h1>
 <p>The tests use only synthetic files, built in memory or written to a
 temporary directory.</p>
 <ul>
-<li>The Rust tests (31 unit tests and 4 integration tests) cover the
-raw-block identity ignoring XMP and placement but following every raw
-byte; a non-DNG TIFF and a truncated raw block reported as errors, not
-matches; each identity reported separately by <code>identify</code>; the
-preserved digest reproducing Unison’s formula byte by byte and ignoring
-region contents; and, for the Lightroom fingerprint, crop and opcode
+<li>The Rust tests (31 unit tests and 6 integration tests, with the
+<code>metadata</code> feature) cover the raw-block identity ignoring XMP
+and placement but following every raw byte; a non-DNG TIFF and a
+truncated raw block reported as errors, not matches; each identity
+reported separately by <code>identify</code>; the preserved digest
+reproducing Unison’s formula byte by byte and ignoring region contents;
+image data ignoring a rewritten, longer metadata packet and moved data
+in a TIFF-based raw, APP segments, comments and trailing data in a JPEG,
+and metadata before the raw data of an RW2 and a RAF, but following
+every image byte, and refusing a DNG, a JPEG cut before EOI and a
+non-image file; and, for the Lightroom fingerprint, crop and opcode
 parsing, the opcode fingerprint stream, the tiled digest and the refusal
 of unsupported strata.</li>
 <li>The OCaml test, run in both switches, checks a non-DNG file (raw
-blocks and Lightroom not attempted, <code>dng_semantic</code> failed,
-<code>preserved</code> not attempted), a missing file reported as an
-error, and the pool returning forty results in input order with four
-workers.</li>
+blocks and Lightroom not attempted, <code>dng_semantic</code> and
+<code>image_data</code> failed, <code>preserved</code> not attempted), a
+missing file reported as an error, and the pool returning forty results
+in input order with four workers.</li>
 </ul>
-<div class="sourceCode" id="cb19"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> test</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ocaml <span class="kw">&amp;&amp;</span> <span class="ex">opam</span> exec <span class="at">--switch</span> default <span class="at">--</span> dune test <span class="at">--force</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ocaml <span class="kw">&amp;&amp;</span> <span class="ex">opam</span> exec <span class="at">--switch</span> 5.2.0+ox <span class="at">--</span> dune test <span class="at">--force</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> test</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="kw">(</span><span class="bu">cd</span> rust <span class="kw">&amp;&amp;</span> <span class="ex">cargo</span> test <span class="at">--release</span> <span class="at">--features</span> metadata <span class="kw">&amp;&amp;</span> <span class="ex">cargo</span> clippy <span class="at">--release</span> <span class="at">--features</span> metadata <span class="at">--all-targets</span><span class="kw">)</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ocaml <span class="kw">&amp;&amp;</span> <span class="ex">opam</span> exec <span class="at">--switch</span> default <span class="at">--</span> dune test <span class="at">--force</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ocaml <span class="kw">&amp;&amp;</span> <span class="ex">opam</span> exec <span class="at">--switch</span> 5.2.0+ox <span class="at">--</span> dune test <span class="at">--force</span></span></code></pre></div>
 <p>Synthetic tests check the code against its definitions. They are not
 the qualification of the Lightroom fingerprint, which rests on the
 native comparison described in its chapter, and they are not a survey of
 real camera files.</p>
-<h1 data-number="15" id="licences"><span class="header-section-number">15</span> Licences</h1>
+<h1 data-number="16" id="licences"><span class="header-section-number">16</span> Licences</h1>
 <p>The phidentify source is MIT. Builds link third-party code under
 other licences:</p>
 <ul>
 <li>The default <code>lightroom</code> feature links rawler 0.8.0, under
 LGPL-2.1.</li>
+<li>The default <code>semantic</code> feature links tiffgraph’s Rust
+crate, under MIT.</li>
 <li>The optional <code>metadata</code> feature links exiftool-rs through
 dng-compare’s <code>dng-exiftool-ffi</code>, under GPL-3.0-or-later. A
 binary built with it is covered by the GPL. dng-compare’s
 <code>rust-scanner/exiftool-ffi/THIRD-PARTY.md</code> lists the
 notices.</li>
 </ul>
-<p>A build with neither feature links only MIT and permissively licensed
-crates.</p>
-<h1 data-number="16" id="reference"><span class="header-section-number">16</span> Reference</h1>
+<p>A build without <code>lightroom</code> and <code>metadata</code>
+links only MIT and permissively licensed crates.</p>
+<h1 data-number="17" id="reference"><span class="header-section-number">17</span> Reference</h1>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -1349,7 +1680,7 @@ crates.</p>
 <tbody>
 <tr>
 <td>Version</td>
-<td>0.1.0</td>
+<td>0.2.0</td>
 </tr>
 <tr>
 <td>Rust</td>
@@ -1362,11 +1693,28 @@ crates.</p>
 </tr>
 <tr>
 <td>In-memory limit</td>
-<td>1 GiB; larger files get SHA-256 only</td>
+<td>1 GiB; larger files get SHA-256, the DNG semantic walk from disk and
+the metadata record</td>
 </tr>
 <tr>
 <td>Raw-block domain</td>
 <td><code>PHIDENTIFY-DNG-ENCODED-RAW-BLOCKS-1\0</code></td>
+</tr>
+<tr>
+<td>Image-data domain</td>
+<td><code>PHIDENTIFY-IMAGE-DATA-1\0</code></td>
+</tr>
+<tr>
+<td>Image-data prefix</td>
+<td><code>image_data::PREFIX_LEN</code> = 16 bytes;
+<code>candidate</code> accepts <code>FF D8 FF</code>,
+<code>FUJIFILMCCD-RAW</code>, <code>II</code>, <code>MM</code></td>
+</tr>
+<tr>
+<td>Image-data reasons</td>
+<td><code>NOT_APPLICABLE</code> =
+<code>not a TIFF-family file or JPEG</code>; <code>DNG</code> =
+<code>DNG: the raw-block identity applies instead</code></td>
 </tr>
 <tr>
 <td>Preserved domain</td>
@@ -1383,12 +1731,18 @@ crates.</p>
 <tr>
 <td>C ABI flags</td>
 <td><code>DNG_BLOCKS</code> 1, <code>LIGHTROOM</code> 2,
-<code>METADATA</code> 4, <code>COMPACT_RECORD</code> 8</td>
+<code>METADATA</code> 4, <code>COMPACT_RECORD</code> 8,
+<code>IMAGE_DATA</code> 16</td>
 </tr>
 <tr>
 <td>C ABI field order</td>
 <td>sha256, raw blocks, Lightroom, metadata digest, preserved, metadata
-record</td>
+record, image data</td>
+</tr>
+<tr>
+<td>Rust features</td>
+<td><code>lightroom</code> (default), <code>semantic</code> (default),
+<code>metadata</code></td>
 </tr>
 <tr>
 <td>Source</td>
@@ -1399,6 +1753,10 @@ record</td>
 <td><a href="https://github.com/firstpair/dng-compare">dng-compare</a>,
 <a href="https://github.com/firstpair/tiffgraph">tiffgraph</a>, <a href="https://github.com/querygraph/semantic-unison">Semantic
 Unison</a></td>
+</tr>
+<tr>
+<td>Indexer</td>
+<td><a href="https://github.com/firstpair/phindex">phindex</a></td>
 </tr>
 </tbody>
 </table>

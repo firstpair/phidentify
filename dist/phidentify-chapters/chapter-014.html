@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
-  <title>Which identity answers which question</title>
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>The identities side by side</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -47,76 +47,103 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-015.html" accesskey="n" rel="next">Testing</a>
+<span class="navlink-label">Next:</span> <a href="chapter-015.html" accesskey="n" rel="next">Which identity answers which question</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-013.html" accesskey="p" rel="previous">The identities side by side</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-013.html" accesskey="p" rel="previous">Preserved digest</a>
 </span>
 </div>
 </nav>
-<h1 data-number="13" id="which-identity-answers-which-question"><span
-class="header-section-number">13</span> Which identity answers which
-question</h1>
-<h2 data-number="13.1" id="is-this-file-in-my-backup"><span
-class="header-section-number">13.1</span> Is this file in my
-backup?</h2>
-<p>Start with <strong>SHA-256</strong>. If the backup holds a file with
-the same SHA-256, that file is an exact copy, and nothing more needs to
-be said.</p>
-<p>If it does not, ask why. Compare <strong>DNG raw blocks</strong>: an
-equal raw-block digest means the backup holds the same encoded
-photograph, but with different bytes somewhere else. That is not yet a
-backup of this file. Next compare <strong>preserved</strong> digests
-under the same profile. If they are equal, the only difference is the
-XMP packet, and the backup plus this file’s packet restores this file
-exactly. If they differ too, something outside the packet changed,
-perhaps a refreshed preview or a field a converter rewrote, and the file
-needs its own copy, or a verified delta such as dng-compare makes.</p>
-<p>A failed identity at any step means “not established”. It never means
-“contained”.</p>
-<h2 data-number="13.2" id="was-this-only-a-metadata-edit"><span
-class="header-section-number">13.2</span> Was this only a metadata
-edit?</h2>
-<p>Compare the two versions:</p>
-<ul>
-<li>SHA-256 differs, <strong>preserved</strong> equal under the same
-profile: only the XMP packet changed.</li>
-<li>The <strong>metadata</strong> digests then differ, and
-<code>metadata::diff</code> names the fields: a rating, a keyword, a
-develop setting.</li>
-<li><strong>preserved</strong> differs but <strong>raw blocks</strong>
-are equal: the raw data is the same, but something besides the packet
-changed. Look at the layout, the previews and the private fields before
-calling it metadata-only.</li>
-<li><strong>raw blocks</strong> differ: the encoded raw data changed. It
-may be a re-encode of the same samples, which dng-compare can decide by
-decoding, or a different photograph.</li>
-</ul>
-<h2 data-number="13.3"
-id="is-this-still-the-original-my-catalog-recorded"><span
-class="header-section-number">13.3</span> Is this still the original my
-catalog recorded?</h2>
-<p>Compute the <strong>Lightroom fingerprint</strong> and compare it,
-with the file size, against the <code>AgLibraryFileDigest.digest</code>
-value stored for that original, read from a copy of the catalog. Equal
-means Lightroom Classic’s matcher would accept the file. A file outside
-the supported strata gives no answer from phidentify; it does not give a
-“no”.</p>
-<p>SHA-256 cannot answer this question, because the catalog does not
-store one, and because Classic’s own value deliberately survives
-metadata written into the file.</p>
-<h2 data-number="13.4" id="did-the-shuttle-copy-arrive-intact"><span
-class="header-section-number">13.4</span> Did the shuttle copy arrive
-intact?</h2>
-<p>When files travel on a portable drive or across a network and come
-back, the question is about bytes, so the answer is
-<strong>SHA-256</strong>: record it before the copy, recompute it after,
-and compare. Nothing weaker will do, because a damaged byte inside a raw
-block is still damage even if the metadata looks the same.</p>
-<p>If an application on the other side wrote metadata into the files on
-arrival, SHA-256 will differ. The <strong>preserved</strong> digest then
-tells you whether the image data and layout arrived intact and only the
-packet changed, and the <strong>metadata</strong> diff tells you what
-was written.</p>
+<h1 data-number="13" id="the-identities-side-by-side"><span
+class="header-section-number">13</span> The identities side by side</h1>
+<table style="width:99%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
+<thead>
+<tr>
+<th></th>
+<th>SHA-256</th>
+<th>DNG raw blocks</th>
+<th>Image data</th>
+<th>Lightroom fingerprint</th>
+<th>Metadata record</th>
+<th>Preserved</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input</td>
+<td>every byte</td>
+<td>encoding tags, block counts and bytes of each primary raw image</td>
+<td>strips and tiles of every directory, RW2 raw span, RAF CFA, or JPEG
+frame, tables and scans</td>
+<td>decoded samples, camera model, crops, opcode lists</td>
+<td>exiftool-rs record without location members, with engine stamp</td>
+<td>every byte outside the primary XMP packet, with size and layout</td>
+</tr>
+<tr>
+<td>Equality proves</td>
+<td>identical files</td>
+<td>same encoded raw data</td>
+<td>same stored image bytes</td>
+<td>Classic would pair the files</td>
+<td>same exposed metadata, same engine</td>
+<td>only the XMP packet can differ</td>
+</tr>
+<tr>
+<td>Does not prove</td>
+<td>—</td>
+<td>metadata, interpretation tags, decoded or rendered equality</td>
+<td>metadata, decoded or rendered equality</td>
+<td>byte or pixel equality</td>
+<td>anything about image data or unexposed bytes</td>
+<td>anything about the XMP packet</td>
+</tr>
+<tr>
+<td>Applies to</td>
+<td>every regular file</td>
+<td>DNG, ≤ 1 GiB</td>
+<td>TIFF-family raws, TIFFs, RAF and JPEGs that are not DNGs, ≤ 1
+GiB</td>
+<td>supported DNG strata</td>
+<td>any file the engine reads</td>
+<td>DNG accepted by a tiffgraph grammar, ≤ 1 GiB</td>
+</tr>
+<tr>
+<td>Hash</td>
+<td>SHA-256</td>
+<td>SHA-256</td>
+<td>SHA-256</td>
+<td>MD5 (Lightroom’s)</td>
+<td>SHA-256</td>
+<td>SHA-256</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>one read</td>
+<td>parse + raw bytes</td>
+<td>parse + image bytes</td>
+<td>full raw decode</td>
+<td>metadata parse</td>
+<td>walk + one pass</td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>always</td>
+<td>always</td>
+<td>always</td>
+<td><code>lightroom</code> (default)</td>
+<td><code>metadata</code> (GPL)</td>
+<td>always; the Rust walk needs <code>semantic</code> (default)</td>
+</tr>
+</tbody>
+</table>
 </body>
 </html>

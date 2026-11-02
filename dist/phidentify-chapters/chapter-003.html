@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>What phidentify is</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -106,19 +106,27 @@ photo file, each answering one question:</p>
 </tr>
 <tr>
 <td>Preserved (complement) digest</td>
-<td><code>preserved_sha256</code></td>
+<td><code>preserved_sha256</code>, with
+<code>dng_semantic_profile</code></td>
 <td><code>preserved</code>, with <code>dng_semantic</code></td>
 <td>every byte outside the primary XMP packet is equal, at the same size
 and layout</td>
+</tr>
+<tr>
+<td>Image data</td>
+<td><code>image_data_sha256</code></td>
+<td><code>image_data</code></td>
+<td>the same stored image bytes, in a camera raw, TIFF or JPEG that is
+not a DNG</td>
 </tr>
 </tbody>
 </table>
 <p>Three rules hold for every identity, in every interface:</p>
 <ol type="1">
 <li><strong>They are separate.</strong> One identity never stands in for
-another. Equal raw blocks are not equal bytes; an equal Lightroom
-fingerprint is not equal pixels; an equal metadata record says nothing
-about image data.</li>
+another. Equal raw blocks are not equal bytes; equal image data is not
+equal metadata; an equal Lightroom fingerprint is not equal pixels; an
+equal metadata record says nothing about image data.</li>
 <li><strong>A missing identity is not a match.</strong> An identity that
 was not requested, does not apply to the file, or failed, is reported as
 such. Two files that both failed an identity have not matched on
@@ -165,6 +173,17 @@ shelf</a>.</li>
 </ul>
 <p>phidentify itself computes identities and nothing else. It does not
 compare trees, write files, touch catalogs, or synchronize anything.</p>
+<p>Comparing trees is the job of its main consumer, <strong><a
+href="https://github.com/firstpair/phindex">phindex</a></strong>, which
+keeps every phidentify identity of every file under a directory tree in
+a resumable SQLite index. Since its version 0.2.0,
+<code>phindex align</code> accounts for the files of one indexed archive
+in another by these identities rather than by name, so copies that were
+moved, renamed, re-dated or had other metadata edited are still found.
+phindex also uses the image-data prefix test described below to add the
+image-data identity to an existing index without reading most files
+again. Its manual is on the <a
+href="https://firstpair.org/books/phindex/">First Pair shelf</a>.</p>
 <h2 data-number="2.2" id="what-it-is-not"><span
 class="header-section-number">2.2</span> What it is not</h2>
 <ul>

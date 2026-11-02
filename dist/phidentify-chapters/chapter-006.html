@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Using it</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -127,7 +127,7 @@ class="header-section-number">5.1</span> Rust</h2>
 class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">phidentify::</span><span class="op">{</span>identify<span class="op">,</span> Options<span class="op">};</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::path::</span><span class="dt">Path</span><span class="op">;</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> opts <span class="op">=</span> Options <span class="op">{</span> dng_blocks<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> lightroom<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> metadata<span class="op">:</span> <span class="cn">false</span><span class="op">,</span> preserved_regions<span class="op">:</span> <span class="cn">None</span> <span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> opts <span class="op">=</span> Options <span class="op">{</span> dng_blocks<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> lightroom<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> image_data<span class="op">:</span> <span class="cn">true</span><span class="op">,</span> <span class="op">..</span><span class="pp">Options::</span><span class="kw">default</span>() <span class="op">};</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> id <span class="op">=</span> identify(<span class="pp">Path::</span>new(<span class="st">&quot;photo.dng&quot;</span>)<span class="op">,</span> opts)<span class="op">?;</span></span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">println!</span>(<span class="st">&quot;{}&quot;</span><span class="op">,</span> id<span class="op">.</span>sha256)<span class="op">;</span></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cf">match</span> <span class="op">&amp;</span>id<span class="op">.</span>dng_raw_blocks_sha256 <span class="op">{</span></span>
@@ -135,7 +135,8 @@ class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Some</span>(<span class="cn">Ok</span>(digest)) <span class="op">=&gt;</span> <span class="pp">println!</span>(<span class="st">&quot;raw blocks: {digest}&quot;</span>)<span class="op">,</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cn">Some</span>(<span class="cn">Err</span>(reason)) <span class="op">=&gt;</span> <span class="pp">println!</span>(<span class="st">&quot;raw blocks failed: {reason}&quot;</span>)<span class="op">,</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p><code>Options</code> has one switch per optional identity:</p>
+<p><code>Options</code> has one switch per optional identity, and
+derives <code>Default</code> with every switch off:</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> Options <span class="op">{</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_blocks<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
@@ -144,7 +145,12 @@ class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Editable regions found by a tiffgraph walk; when given, the</span></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// `SDE/0-preserved` complement digest is computed over the same bytes.</span></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> preserved_regions<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Vec</span><span class="op">&lt;</span>(<span class="dt">u64</span><span class="op">,</span> <span class="dt">u64</span>)<span class="op">&gt;&gt;,</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Walk the bytes with tiffgraph (strictest of dng-xmp/0, /1, /2)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// and take `preserved_regions` from it; needs the `semantic` feature.</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The whole-file SHA-256 is always computed. <code>identify</code>
 returns <code>Result&lt;Identity&gt;</code>:</p>
 <div class="sourceCode" id="cb3"><pre
@@ -155,34 +161,58 @@ class="sourceCode rust"><code class="sourceCode rust"><span id="cb3-1"><a href="
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> lightroom_digest<span class="op">:</span> Outcome<span class="op">,</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_digest<span class="op">:</span> Outcome<span class="op">,</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> preserved_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic_profile<span class="op">:</span> Outcome<span class="op">,</span>   <span class="co">// Ok(profile) of the accepting grammar</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
 <p><code>Outcome</code> has three states: <code>None</code> when the
 identity was not attempted, <code>Some(Ok(value))</code>, and
 <code>Some(Err(reason))</code> when it failed or does not apply. The
 chapter on reporting lists exactly which happens when.</p>
-<p>The Rust core does not walk TIFF graphs for the preserved digest. A
-Rust caller passes the regions in
+<p>For the preserved digest a Rust caller has two choices:</p>
+<ul>
+<li>Set <code>dng_semantic: true</code>. The core walks the file with
+tiffgraph’s Rust crate, using the same three grammars in the same order
+as the OCaml package, records the accepting grammar in
+<code>dng_semantic_profile</code>, and computes
+<code>preserved_sha256</code> over the packet it found.
+<code>phidentify::semantic::strictest(bytes)</code> is that walk over
+bytes in memory. For a file over the in-memory limit, the core walks it
+from disk instead, with tiffgraph’s positional <code>FileReader</code>
+(<code>semantic::strictest_file(path)</code>), as the OCaml package’s
+file reader does, so both report the same profile or the same refusal;
+the preserved digest itself then fails with
+<code>file over the in-memory limit</code>. When the walk refuses the
+file, <code>dng_semantic_profile</code> holds the reason and
+<code>preserved_sha256</code> is <code>None</code>.</li>
+<li>Leave <code>dng_semantic</code> off and pass the regions in
 <code>Options::preserved_regions</code>, as sorted, disjoint
 <code>(offset, length)</code> pairs inside the file, obtained from a
 tiffgraph walk or from Semantic Unison.
 <code>phidentify::file::preserved_sha256(bytes, regions)</code> computes
-the same digest over bytes already in memory.</p>
-<p>The <code>identify</code> example prints one JSON line per
-argument:</p>
+the same digest over bytes already in memory.</li>
+</ul>
+<p>The <code>identify</code> example requests every identity the build
+supports, including the DNG semantic walk and image data, and prints one
+JSON line per argument:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">--release</span> <span class="at">--example</span> identify <span class="at">--</span> photo.dng notes.txt</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">--release</span> <span class="at">--features</span> phidentify/metadata <span class="at">--example</span> identify <span class="at">--</span> photo.dng</span></code></pre></div>
-<p>On a synthetic text file, a truncated TIFF and a missing path it
-prints (shortened with …):</p>
+<p>On a synthetic text file, a 14-byte TIFF with one empty directory and
+a missing path it prints (without the stamp, the digests shortened with
+…):</p>
 <div class="sourceCode" id="cb5"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="er">…,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;c63c33f0…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;notes.txt&quot;</span><span class="fu">}</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;No DNG raw image found&quot;</span><span class="fu">},</span><span class="er">…</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;tiny.tif&quot;</span><span class="fu">}</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;error&quot;</span><span class="fu">:</span><span class="st">&quot;stat missing: No such file or directory (os error 2)&quot;</span><span class="fu">,</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;missing&quot;</span><span class="fu">}</span></span></code></pre></div>
+class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;dng_semantic_profile&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;not TIFF&quot;</span><span class="fu">},</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;image_data_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;not a TIFF-family file or JPEG&quot;</span><span class="fu">},</span><span class="dt">&quot;lightroom_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metadata_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;preserved_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;c5e496e7…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;notes.txt&quot;</span><span class="fu">}</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;identity&quot;</span><span class="fu">:{</span><span class="dt">&quot;dng_raw_blocks_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;TIFF offset outside file&quot;</span><span class="fu">},</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dng_semantic_profile&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;missing DNGVersion&quot;</span><span class="fu">},</span><span class="dt">&quot;image_data_sha256&quot;</span><span class="fu">:{</span><span class="dt">&quot;Err&quot;</span><span class="fu">:</span><span class="st">&quot;no image data in TIFF&quot;</span><span class="fu">},</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;lightroom_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;metadata_digest&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;preserved_sha256&quot;</span><span class="fu">:</span><span class="kw">null</span><span class="fu">,</span><span class="dt">&quot;sha256&quot;</span><span class="fu">:</span><span class="st">&quot;5b8de6f0…&quot;</span><span class="fu">},</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;tiny.tif&quot;</span><span class="fu">}</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;error&quot;</span><span class="fu">:</span><span class="st">&quot;stat missing: No such file or directory (os error 2)&quot;</span><span class="fu">,</span><span class="dt">&quot;path&quot;</span><span class="fu">:</span><span class="st">&quot;missing&quot;</span><span class="fu">}</span></span></code></pre></div>
 <p>In JSON, <code>null</code> is not attempted, <code>{"Ok": …}</code>
-is a value and <code>{"Err": …}</code> is a failure. The example never
-passes preserved regions, so <code>preserved_sha256</code> is always
-<code>null</code> there.</p>
+is a value and <code>{"Err": …}</code> is a failure.
+<code>preserved_sha256</code> stays <code>null</code> when the walk
+refuses the file; for a DNG a grammar accepts, it holds the digest.</p>
 <h2 data-number="5.2" id="ocaml-and-oxcaml-1"><span
 class="header-section-number">5.2</span> OCaml and OxCaml</h2>
 <p>The OCaml interface is the same under stock OCaml and OxCaml.</p>
@@ -197,21 +227,26 @@ class="sourceCode ocaml"><code class="sourceCode ocaml"><span id="cb6-1"><a href
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  dng_semantic : outcome;  <span class="co">(* Ok profile *)</span></span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  preserved : outcome;</span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  metadata_record : <span class="dt">string</span> <span class="dt">option</span>;</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span> }</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
-<p><code>all</code> requests every identity and leaves
-<code>compact_record</code> off. A request field that the linked library
-does not support, such as <code>metadata</code> without the
-<code>metadata</code> feature, comes back as
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  image_data : outcome;</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span>; image_data : <span class="dt">bool</span> }</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_candidate : <span class="dt">string</span> -&gt; <span class="dt">bool</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_prefix_len : <span class="dt">int</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_not_applicable : <span class="dt">string</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_dng : <span class="dt">string</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
+<p><code>all</code> requests every identity, <code>image_data</code>
+included, and leaves <code>compact_record</code> off. A request field
+that the linked library does not support, such as <code>metadata</code>
+without the <code>metadata</code> feature, comes back as
 <code>Failed "built without the metadata feature"</code>, not as
 <code>Not_attempted</code>.</p>
 <p><code>dng_semantic = true</code> runs the tiffgraph walk and, when it
@@ -227,6 +262,13 @@ class="sourceCode ocaml"><code class="sourceCode ocaml"><span id="cb7-1"><a href
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>   | <span class="dt">Ok</span> profile, <span class="dt">Ok</span> digest -&gt; <span class="dt">Printf</span>.printf <span class="st">&quot;%s %s</span><span class="ch">\n</span><span class="st">&quot;</span> profile digest</span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>   | Failed reason, _ -&gt; <span class="dt">Printf</span>.printf <span class="st">&quot;no preserved digest: %s</span><span class="ch">\n</span><span class="st">&quot;</span> reason</span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>   | _ -&gt; ())</span></code></pre></div>
+<p><code>image_data</code> is the image-data identity, reported like the
+others. <code>image_data_candidate</code>,
+<code>image_data_prefix_len</code> and the two reason strings are the
+OCaml counterparts of the Rust <code>image_data::candidate</code>,
+<code>PREFIX_LEN</code>, <code>NOT_APPLICABLE</code> and
+<code>DNG</code>, and give the same answers; the chapter on image data
+explains how an indexer uses them.</p>
 <p><code>identify_all ~workers paths</code> identifies a list in
 parallel and returns the results in input order. It raises
 <code>Invalid_argument</code> when <code>workers &lt; 1</code>, and it
@@ -239,24 +281,27 @@ prints one tab-separated line per file, in argument order:</p>
 <pre class="text"><code>path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved</code></pre>
 <p>Each identity column is the value, <code>-</code> when not attempted,
 or <code>!reason</code> when it failed. The command never requests the
-metadata identity, so that column is always <code>-</code>. A file that
-cannot be identified at all gets a two-column line, <code>path</code>,
-then <code>!reason</code>. <code>-j N</code> sets the number of workers;
-the default is <code>recommended_workers ()</code>.</p>
-<p>On a synthetic text file and a truncated TIFF:</p>
-<pre class="text"><code>notes.txt  c63c33f0…  -                        -  -  !not TIFF            -
-tiny.tif   b44eca9f…  !No DNG raw image found  -  -  !missing DNGVersion  -</code></pre>
+metadata identity, so that column is always <code>-</code>. It does not
+print the image-data identity; use the library, or the Rust
+<code>identify</code> example, for that. A file that cannot be
+identified at all gets a two-column line, <code>path</code>, then
+<code>!reason</code>. <code>-j N</code> sets the number of workers; the
+default is <code>recommended_workers ()</code>.</p>
+<p>On the same synthetic text file and TIFF:</p>
+<pre class="text"><code>notes.txt  c5e496e7…  -                          -  -  !not TIFF            -
+tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -</code></pre>
 <h2 data-number="5.4" id="the-c-abi"><span
 class="header-section-number">5.4</span> The C ABI</h2>
 <div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_DNG_BLOCKS </span><span class="dv">1</span><span class="bu">u</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_LIGHTROOM </span><span class="dv">2</span><span class="bu">u</span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_METADATA </span><span class="dv">4</span><span class="bu">u</span></span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_COMPACT_RECORD </span><span class="dv">8</span><span class="bu">u</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_IMAGE_DATA </span><span class="dv">16</span><span class="bu">u</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
 <p><code>path</code> is a byte string of <code>path_len</code> bytes,
 not NUL-terminated. <code>regions</code> holds <code>n_regions</code>
 pairs of <code>(offset, length)</code>, or is <code>NULL</code> when no
@@ -288,14 +333,17 @@ preserved digest is wanted.</p>
 </tr>
 </tbody>
 </table>
-<p>With status 0, <code>out</code> holds six fields separated by NUL
+<p>With status 0, <code>out</code> holds seven fields separated by NUL
 bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata
-digest, preserved digest, metadata record JSON. Each field is
+digest, preserved digest, metadata record JSON, image data. The
+image-data field is filled only when <code>PHIDENTIFY_IMAGE_DATA</code>
+(16) is set in <code>flags</code>; it was added as the seventh field so
+that the first six keep their places. Each field is
 <code>ok:&lt;value&gt;</code>, <code>err:&lt;reason&gt;</code>, or empty
 when not attempted. Free every <code>out</code> buffer exactly once with
 <code>phidentify_free(out, out_len)</code>.</p>
 <p><code>phidentify_version</code> returns a string such as
-<code>phidentify 0.1.0 +lightroom +metadata</code>, naming the features
+<code>phidentify 0.2.0 +lightroom +metadata</code>, naming the features
 the library was built with.</p>
 </body>
 </html>

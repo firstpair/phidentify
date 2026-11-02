@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
-  <title>Metadata record</title>
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Lightroom Classic original fingerprint</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -47,132 +47,107 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">Preserved digest</a>
+<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">Metadata record</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-010.html" accesskey="p" rel="previous">Lightroom Classic original fingerprint</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-010.html" accesskey="p" rel="previous">Image data</a>
 </span>
 </div>
 </nav>
-<h1 data-number="10" id="metadata-record"><span
-class="header-section-number">10</span> Metadata record</h1>
-<h2 data-number="10.1" id="what-goes-in-3"><span
-class="header-section-number">10.1</span> What goes in</h2>
-<p>The file’s metadata as read by dng-compare’s <strong>exiftool-rs
-engine</strong> (<code>dng-exiftool-ffi</code>), an in-process Rust
-metadata reader. The record is one ExifTool-shaped JSON object,
-following the flags dng-compare’s Perl workers use: group-qualified keys
-(<code>-G0:1:4</code>), numeric values (<code>-n</code>), nested XMP
-structures (<code>-struct</code>), duplicates kept as
-<code>Copy1</code>, <code>Copy2</code> and so on, and unknown tags
-included. Embedded image payloads such as previews and thumbnails stored
-as image tags are left out of the record.</p>
-<p>Every record carries an engine stamp member,
-<code>ExifTool:DngCompareEngine</code>, naming the engine and its
-version, for example
-<code>exiftool-rs 0.12.0 (ExifTool … tables)</code>.</p>
-<p>The <strong>metadata digest</strong> is SHA-256 over the record
-serialized with sorted keys, after removing the members that describe
-where the file sits rather than what it contains:
-<code>SourceFile</code> and every <code>File:System:*</code> member
-(file name, directory, size, dates, permissions).</p>
-<p>The engine stamp is <strong>not</strong> removed. It is part of the
-digest, so records from different engines, or from different versions of
-the engine, never compare equal. They are separate identities, and
-records from Perl ExifTool are another identity again.</p>
-<h2 data-number="10.2" id="what-equality-proves-3"><span
-class="header-section-number">10.2</span> What equality proves</h2>
-<p>Equal digests mean the engine produced the same metadata record for
-both files, apart from location members.</p>
-<h2 data-number="10.3" id="what-it-does-not-prove-3"><span
-class="header-section-number">10.3</span> What it does not prove</h2>
-<p>Nothing about image data: two different photographs can share a
-record if the engine sees the same fields. Nor does it cover every byte
-of metadata: fields the engine does not decode, padding, and the bytes
-of embedded previews are outside it. It is a description of the metadata
-the engine exposes, not a byte identity of the metadata. To prove that
-only the metadata packet changed, use the preserved digest.</p>
-<h2 data-number="10.4" id="when-to-use-it-3"><span
-class="header-section-number">10.4</span> When to use it</h2>
-<p>Use it to group files by metadata, to detect metadata-only edits,
-and, with <code>diff</code>, to say exactly which fields changed.</p>
-<h2 data-number="10.5" id="compact-records-and-diffs"><span
-class="header-section-number">10.5</span> Compact records and diffs</h2>
-<p>The full record is available too: <code>metadata_json</code> in Rust,
-<code>metadata_record</code> in OCaml.</p>
+<h1 data-number="10" id="lightroom-classic-original-fingerprint"><span
+class="header-section-number">10</span> Lightroom Classic original
+fingerprint</h1>
+<h2 data-number="10.1" id="what-it-is"><span
+class="header-section-number">10.1</span> What it is</h2>
+<p>Lightroom Classic stores a fingerprint of each original file in its
+catalog, in the <code>digest</code> column of the
+<code>AgLibraryFileDigest</code> table. phidentify computes that value
+for the DNGs it supports, so that a file can be checked against the
+catalog without Lightroom.</p>
+<p>It is an <strong>independent reimplementation</strong>. It contains
+no Adobe code, and it was qualified only by comparing its output with
+values Lightroom Classic itself had stored.</p>
+<h2 data-number="10.2" id="what-goes-in-3"><span
+class="header-section-number">10.2</span> What goes in</h2>
+<p>At the level the source shows, the fingerprint has two layers:</p>
+<ol type="1">
+<li><strong>A raw-image digest.</strong> The raw samples are decoded
+with rawler, before linearization, without camera crop or any rendering.
+The digest is Adobe’s NewRawImageDigest, the raw-image digest the DNG
+specification defines, recomputed here from the decoded samples: the
+samples are cut into tiles, each tile is hashed with MD5, and the tile
+digests are hashed again with MD5.</li>
+<li><strong>A wrapper.</strong> That raw digest is wrapped, again with
+MD5, together with streams that describe how the image is framed: the
+camera model, the default crop size and origin, the user crop when there
+is one, and a fingerprint stream of the raw image’s opcode lists.</li>
+</ol>
+<p>The result is 32 upper-case hex digits, as Classic stores it.</p>
+<p>The Rust module also exposes <code>lightroom::compute(path)</code>,
+which returns the intermediate values: the raw-image digest, a SHA-256
+of the wrapper inputs, and the engine revision name,
+<code>native-original-digest-v5</code>. Those are for diagnosis; the
+identity is the final digest.</p>
+<h2 data-number="10.3" id="supported-strata"><span
+class="header-section-number">10.3</span> Supported strata</h2>
+<p>The fingerprint is computed only for DNGs that are:</p>
 <ul>
-<li><code>metadata::compact(json)</code> replaces every string member
-longer than 1 KiB, such as base64 thumbnails and camera-profile tables,
-by <code>long-sha256:&lt;hex&gt;:&lt;length&gt;</code>, the SHA-256 and
-byte length of the original string. Compact records are for storage. The
-digest is always taken over the full record, never the compact one. In
-OCaml, set <code>compact_record = true</code> in the request; over the C
-ABI, pass <code>PHIDENTIFY_COMPACT_RECORD</code>.</li>
-<li><code>metadata::diff(left, right)</code> lists the top-level members
-whose values differ between two records, ignoring location members. Each
-difference is <code>(key, left value, right value)</code>, with
-<code>None</code> on a side where the member is absent. Nested
-structures are compared as whole values.</li>
+<li>integer-sampled,</li>
+<li>single-plane CFA or LinearRaw,</li>
+<li>stored uncompressed or with lossless JPEG compression, in classic
+TIFF rather than BigTIFF,</li>
+<li>with raw-image opcodes limited to the two implemented,
+FixVignetteRadial and FixBadPixelsConstant.</li>
 </ul>
-<h2 data-number="10.6" id="reporting-3"><span
-class="header-section-number">10.6</span> Reporting</h2>
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-</colgroup>
-<thead>
-<tr>
-<th>Situation</th>
-<th>Rust</th>
-<th>OCaml</th>
-<th>Command</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>not requested</td>
-<td><code>None</code></td>
-<td><code>Not_attempted</code></td>
-<td>always <code>-</code></td>
-</tr>
-<tr>
-<td>built without the <code>metadata</code> feature</td>
-<td><code>Some(Err("built without the metadata feature"))</code></td>
-<td><code>Failed</code></td>
-<td>—</td>
-</tr>
-<tr>
-<td>the engine reports an error</td>
-<td><code>Some(Err("metadata extraction failed: …"))</code></td>
-<td><code>Failed</code></td>
-<td>—</td>
-</tr>
-<tr>
-<td>success</td>
-<td><code>Some(Ok(hex))</code></td>
-<td><code>Ok hex</code></td>
-<td>—</td>
-</tr>
-</tbody>
-</table>
-<p>The engine reports a failed file as an <code>ExifTool:Error</code>
-member in its record. phidentify turns that member into a failure. It is
-never treated as an empty record, and two failed files never share a
-digest.</p>
-<p>The metadata identity is attempted for any file, not only DNGs.</p>
-<h2 data-number="10.7" id="cost-3"><span
-class="header-section-number">10.7</span> Cost</h2>
-<p>Moderate. The engine reads the file again from its path and decodes
-its metadata structures; the record can be large when it holds long
-strings, which is why <code>compact</code> exists. It does not decode
-image data.</p>
-<h2 data-number="10.8" id="licence"><span
-class="header-section-number">10.8</span> Licence</h2>
-<p>The <code>metadata</code> feature links exiftool-rs, which is
-GPL-3.0-or-later. A binary built with it is covered by the GPL. See the
-chapter on licences.</p>
+<p>Every other file is an error with a reason, never a guessed value.
+JPEG files, camera-native raw files and DNG strata outside that list are
+not implemented.</p>
+<h2 data-number="10.4" id="qualification"><span
+class="header-section-number">10.4</span> Qualification</h2>
+<p>On 2026-11-01, 60 randomly chosen DNGs from a Lightroom Classic 15
+catalog were fingerprinted. All 60 matched the fingerprints Lightroom
+Classic had stored for them.</p>
+<p>That is the whole evidence for this identity. It covers the strata
+above, as Lightroom Classic 15 computed them. Extending the fingerprint
+to another format needs native values from Lightroom for that format
+first.</p>
+<h2 data-number="10.5" id="what-equality-proves-3"><span
+class="header-section-number">10.5</span> What equality proves</h2>
+<p>An equal digest means Lightroom Classic’s original matcher would pair
+the two files, or would accept the file as the original a catalog entry
+recorded. Compare it together with the file size, which Classic stores
+beside it.</p>
+<h2 data-number="10.6" id="what-it-does-not-prove-3"><span
+class="header-section-number">10.6</span> What it does not prove</h2>
+<p>It is native-matcher correspondence, not byte equality and not pixel
+equality. Two files with equal fingerprints can differ in metadata,
+previews and layout. MD5 is used because that is what Lightroom uses;
+the value is a compatibility identity, not a cryptographic one, and
+should not be relied on against deliberately crafted files.</p>
+<h2 data-number="10.7" id="when-to-use-it-3"><span
+class="header-section-number">10.7</span> When to use it</h2>
+<p>Use it to check a file against a Lightroom Classic catalog: is this
+the original the catalog thinks it is, which file on disk does this
+catalog entry correspond to, did a restore bring back the file Classic
+expects. Read the catalog’s stored values from a copy, never from a
+catalog Classic has open, and never write them.</p>
+<h2 data-number="10.8" id="reporting-3"><span
+class="header-section-number">10.8</span> Reporting</h2>
+<p>The fingerprint is attempted only when it is requested and the file
+parsed as a DNG with a primary raw image, the same gate as the raw-block
+identity. Otherwise it is not attempted (<code>None</code>,
+<code>Not_attempted</code>, <code>-</code>).</p>
+<p>When attempted, it fails with a reason for any unsupported stratum,
+malformed metadata, a decoder error, decoded dimensions that disagree
+with the raw directory, or a change to the file while it is read. A
+library built without the <code>lightroom</code> feature reports
+<code>built without the lightroom feature</code> as a failure for every
+DNG.</p>
+<h2 data-number="10.9" id="cost-3"><span
+class="header-section-number">10.9</span> Cost</h2>
+<p>The most expensive identity by far. It reads the file again from its
+path and fully decodes the raw image, so it costs CPU in proportion to
+the sensor size and holds the decoded samples in memory, two bytes per
+sample. Request it only when the question is about Lightroom.</p>
 </body>
 </html>

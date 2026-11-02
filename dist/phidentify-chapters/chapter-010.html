@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
   <meta name="dcterms.date" content="2026-11-02" />
-  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
-  <title>Lightroom Classic original fingerprint</title>
+  <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
+  <title>Image data</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -47,107 +47,205 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-011.html" accesskey="n" rel="next">Metadata record</a>
+<span class="navlink-label">Next:</span> <a href="chapter-011.html" accesskey="n" rel="next">Lightroom Classic original fingerprint</a>
 </span>
 <span class="navlink">
 <span class="navlink-label">Previous:</span> <a href="chapter-009.html" accesskey="p" rel="previous">DNG encoded raw blocks</a>
 </span>
 </div>
 </nav>
-<h1 data-number="9" id="lightroom-classic-original-fingerprint"><span
-class="header-section-number">9</span> Lightroom Classic original
-fingerprint</h1>
-<h2 data-number="9.1" id="what-it-is"><span
-class="header-section-number">9.1</span> What it is</h2>
-<p>Lightroom Classic stores a fingerprint of each original file in its
-catalog, in the <code>digest</code> column of the
-<code>AgLibraryFileDigest</code> table. phidentify computes that value
-for the DNGs it supports, so that a file can be checked against the
-catalog without Lightroom.</p>
-<p>It is an <strong>independent reimplementation</strong>. It contains
-no Adobe code, and it was qualified only by comparing its output with
-values Lightroom Classic itself had stored.</p>
-<h2 data-number="9.2" id="what-goes-in-2"><span
-class="header-section-number">9.2</span> What goes in</h2>
-<p>At the level the source shows, the fingerprint has two layers:</p>
-<ol type="1">
-<li><strong>A raw-image digest.</strong> The raw samples are decoded
-with rawler, before linearization, without camera crop or any rendering.
-The digest is Adobe’s NewRawImageDigest, the raw-image digest the DNG
-specification defines, recomputed here from the decoded samples: the
-samples are cut into tiles, each tile is hashed with MD5, and the tile
-digests are hashed again with MD5.</li>
-<li><strong>A wrapper.</strong> That raw digest is wrapped, again with
-MD5, together with streams that describe how the image is framed: the
-camera model, the default crop size and origin, the user crop when there
-is one, and a fingerprint stream of the raw image’s opcode lists.</li>
-</ol>
-<p>The result is 32 upper-case hex digits, as Classic stores it.</p>
-<p>The Rust module also exposes <code>lightroom::compute(path)</code>,
-which returns the intermediate values: the raw-image digest, a SHA-256
-of the wrapper inputs, and the engine revision name,
-<code>native-original-digest-v5</code>. Those are for diagnosis; the
-identity is the final digest.</p>
-<h2 data-number="9.3" id="supported-strata"><span
-class="header-section-number">9.3</span> Supported strata</h2>
-<p>The fingerprint is computed only for DNGs that are:</p>
+<h1 data-number="9" id="image-data"><span
+class="header-section-number">9</span> Image data</h1>
+<h2 data-number="9.1" id="what-goes-in-2"><span
+class="header-section-number">9.1</span> What goes in</h2>
+<p>The stored image bytes of a camera raw, TIFF or JPEG that is not a
+DNG, and nothing else. Which bytes those are depends on the format,
+which phidentify recognizes from the first bytes of the file:</p>
 <ul>
-<li>integer-sampled,</li>
-<li>single-plane CFA or LinearRaw,</li>
-<li>stored uncompressed or with lossless JPEG compression, in classic
-TIFF rather than BigTIFF,</li>
-<li>with raw-image opcodes limited to the two implemented,
-FixVignetteRadial and FixBadPixelsConstant.</li>
+<li><strong>TIFF family.</strong> Classic TIFF and BigTIFF, and the
+camera raws built on TIFF: NEF, CR2, ARW, 3FR, PEF, ORF, the RW2 header
+and others. phidentify walks the chain of directories from the header
+and every SubIFD, in walk order, and takes from <strong>every</strong>
+directory that has them the strip or tile payloads named by its offsets
+and byte counts (TileOffsets and TileByteCounts, or StripOffsets and
+StripByteCounts). Every directory counts, not just the primary raw
+image: thumbnails and previews stored as strips or tiles are part of
+it.</li>
+<li><strong>Panasonic RW2.</strong> Its raw data has no byte counts.
+When a directory has neither strip nor tile offsets but has
+RawDataOffset (tag 280), the span from that offset to the end of the
+file is taken.</li>
+<li><strong>Fujifilm RAF.</strong> The header, which starts with
+<code>FUJIFILMCCD-RAW</code>, names the CFA section by its offset and
+length, big-endian at bytes 100 and 104. That section is taken.</li>
+<li><strong>JPEG.</strong> The primary image’s frame, tables and
+entropy-coded scans: every segment after SOI up to EOI except the APPn
+segments (EXIF, XMP, ICC profiles, thumbnails, MPF) and comments.
+Trailing data after EOI, where some cameras put further images, is left
+out.</li>
 </ul>
-<p>Every other file is an error with a reason, never a guessed value.
-JPEG files, camera-native raw files and DNG strata outside that list are
-not implemented.</p>
-<h2 data-number="9.4" id="qualification"><span
-class="header-section-number">9.4</span> Qualification</h2>
-<p>On 2026-11-01, 60 randomly chosen DNGs from a Lightroom Classic 15
-catalog were fingerprinted. All 60 matched the fingerprints Lightroom
-Classic had stored for them.</p>
-<p>That is the whole evidence for this identity. It covers the strata
-above, as Lightroom Classic 15 computed them. Extending the fingerprint
-to another format needs native values from Lightroom for that format
-first.</p>
-<h2 data-number="9.5" id="what-equality-proves-2"><span
-class="header-section-number">9.5</span> What equality proves</h2>
-<p>An equal digest means Lightroom Classic’s original matcher would pair
-the two files, or would accept the file as the original a catalog entry
-recorded. Compare it together with the file size, which Classic stores
-beside it.</p>
-<h2 data-number="9.6" id="what-it-does-not-prove-2"><span
-class="header-section-number">9.6</span> What it does not prove</h2>
-<p>It is native-matcher correspondence, not byte equality and not pixel
-equality. Two files with equal fingerprints can differ in metadata,
-previews and layout. MD5 is used because that is what Lightroom uses;
-the value is a compatibility identity, not a cryptographic one, and
-should not be relied on against deliberately crafted files.</p>
-<h2 data-number="9.7" id="when-to-use-it-2"><span
-class="header-section-number">9.7</span> When to use it</h2>
-<p>Use it to check a file against a Lightroom Classic catalog: is this
-the original the catalog thinks it is, which file on disk does this
-catalog entry correspond to, did a restore bring back the file Classic
-expects. Read the catalog’s stored values from a copy, never from a
-catalog Classic has open, and never write them.</p>
-<h2 data-number="9.8" id="reporting-2"><span
-class="header-section-number">9.8</span> Reporting</h2>
-<p>The fingerprint is attempted only when it is requested and the file
-parsed as a DNG with a primary raw image, the same gate as the raw-block
-identity. Otherwise it is not attempted (<code>None</code>,
-<code>Not_attempted</code>, <code>-</code>).</p>
-<p>When attempted, it fails with a reason for any unsupported stratum,
-malformed metadata, a decoder error, decoded dimensions that disagree
-with the raw directory, or a change to the file while it is read. A
-library built without the <code>lightroom</code> feature reports
-<code>built without the lightroom feature</code> as a failure for every
-DNG.</p>
-<h2 data-number="9.9" id="cost-2"><span
-class="header-section-number">9.9</span> Cost</h2>
-<p>The most expensive identity by far. It reads the file again from its
-path and fully decodes the raw image, so it costs CPU in proportion to
-the sensor size and holds the decoded samples in memory, two bytes per
-sample. Request it only when the question is about Lightroom.</p>
+<p>The digest is SHA-256 over a domain string, a format letter and the
+bytes in a fixed framing. All integers are unsigned 64-bit
+little-endian:</p>
+<pre class="text"><code>&quot;PHIDENTIFY-IMAGE-DATA-1\0&quot;
+‖ &quot;T&quot; ‖ byte-order byte (1 for big-endian)                    -- TIFF family, RW2
+     ‖ for each directory with image data, in walk order:
+         u64le directory number (1, 2, …) ‖ u64le block count
+       ‖ for each strip or tile: u64le byte count ‖ bytes
+‖ &quot;F&quot; ‖ u64le CFA length ‖ CFA bytes                           -- RAF
+‖ &quot;J&quot; ‖ for each segment after SOI, up to EOI, except APPn and COM:
+         the segment as stored (marker, length, body)
+       ‖ after each SOS segment: u64le scan length ‖ scan bytes
+     ‖ FF D9                                                   -- JPEG</code></pre>
+<p>An RW2’s raw span is framed as one directory with one block. A JPEG’s
+scan bytes are hashed as stored, with their stuffed <code>FF 00</code>
+bytes and restart markers; standalone restart markers and fill bytes
+between segments are skipped. Offsets are never hashed, so image data
+that moved inside the file keeps the digest.</p>
+<p>The domain string names the definition. If what it covers ever
+changes, the domain string changes with it.</p>
+<h2 data-number="9.2" id="what-equality-proves-2"><span
+class="header-section-number">9.2</span> What equality proves</h2>
+<p>Equal digests mean the two files store the same image bytes, in the
+same order and the same framing: the same strips and tiles, the same raw
+span, the same CFA section, or the same JPEG frame, tables and scans.
+The photograph as the camera or converter encoded it is the same.</p>
+<p>On real files, an ExifTool capture-time shift changed the whole-file
+SHA-256 of TIFF, ARW, RW2 and JPEG files and left their image data
+equal. (ExifTool cannot write 3FR, so that format was not part of the
+check.)</p>
+<h2 data-number="9.3" id="what-it-does-not-prove-2"><span
+class="header-section-number">9.3</span> What it does not prove</h2>
+<ul>
+<li><strong>Not metadata equality.</strong> EXIF, maker notes, XMP,
+IPTC, ICC profiles and comments are left out, and so are directory
+entries that do not name image data. Two files with equal image data can
+have different capture times, keywords and ratings.</li>
+<li><strong>Not decoded-pixel equality.</strong> The same picture
+re-encoded, re-compressed, re-tiled or saved with another byte order
+gets a different digest. So does a file whose preview strips were
+rewritten, because those strips are image data.</li>
+<li><strong>Not a raw-block identity.</strong> For DNGs, use the
+raw-block identity. The two are separate identities with separate domain
+strings, and a non-DNG file never has a raw-block digest.</li>
+</ul>
+<h2 data-number="9.4" id="when-to-use-it-2"><span
+class="header-section-number">9.4</span> When to use it</h2>
+<p>Use it to match copies of non-DNG camera files and JPEGs whose
+metadata was edited. The commonest such edit is a capture-time shift,
+made because the camera clock was wrong or set to another time zone: it
+rewrites a few bytes of EXIF in every file, every whole-file SHA-256
+changes, and a byte comparison says nothing is backed up. With image
+data, the shifted copy and the original still agree. The same holds for
+keywords, ratings or copyright written into a JPEG’s APP segments.</p>
+<h2 data-number="9.5" id="why-dngs-are-refused"><span
+class="header-section-number">9.5</span> Why DNGs are refused</h2>
+<p>A DNG is a TIFF, and its strips include its previews. Lightroom
+Classic regenerates a DNG’s previews when it saves metadata into the
+file, so an image-data digest of a DNG would change on a metadata edit,
+which is the change it is meant to survive. The raw-block identity
+already answers the question for DNGs, over the primary raw images only.
+So a TIFF-family file with a DNGVersion tag in any directory is refused
+with the reason
+<code>DNG: the raw-block identity applies instead</code>.</p>
+<p>CR3, HEIC and other ISO-BMFF or unknown containers are refused as not
+applicable.</p>
+<h2 data-number="9.6" id="deciding-from-the-first-bytes"><span
+class="header-section-number">9.6</span> Deciding from the first
+bytes</h2>
+<p>Whether a file can have image data is decided by its first 16 bytes.
+<code>image_data::candidate(prefix)</code> in Rust and
+<code>Phidentify.image_data_candidate</code> in OCaml take the first
+<code>image_data::PREFIX_LEN</code> (<code>image_data_prefix_len</code>,
+16) bytes of a file, or all of a shorter file, and return true when they
+start like a JPEG (<code>FF D8 FF</code>), a RAF
+(<code>FUJIFILMCCD-RAW</code>) or a TIFF-family file (<code>II</code> or
+<code>MM</code>, with at least four bytes).</p>
+<p>When <code>candidate</code> is false, the full identity fails with
+exactly <code>image_data::NOT_APPLICABLE</code>
+(<code>image_data_not_applicable</code>),
+<code>not a TIFF-family file or JPEG</code>, so a caller can record that
+outcome without reading the rest of the file. When it is true, only a
+full read can tell: a DNG fails with <code>image_data::DNG</code>
+(<code>image_data_dng</code>), and a malformed file with its own
+reason.</p>
+<p>This exists for indexers. When phindex 0.2.0 added the image-data
+column to existing indexes, it settled rows that already had a raw-block
+digest with the DNG reason without opening the file, read only the first
+16 bytes of every other unchanged file, recorded the not-applicable
+reason for videos, sidecars and other non-candidates, and read in full
+only the files that can have image data.</p>
+<h2 data-number="9.7" id="reporting-2"><span
+class="header-section-number">9.7</span> Reporting</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Rust</th>
+<th>OCaml</th>
+<th>C field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>not requested</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td>first bytes are not a candidate</td>
+<td><code>Some(Err("not a TIFF-family file or JPEG"))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>DNG</td>
+<td><code>Some(Err("DNG: the raw-block identity applies instead"))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>file over 1 GiB</td>
+<td><code>Some(Err("file over the in-memory limit"))</code></td>
+<td><code>Failed</code> with the same reason</td>
+<td><code>err:…</code></td>
+</tr>
+<tr>
+<td>malformed file</td>
+<td><code>Some(Err(reason))</code></td>
+<td><code>Failed reason</code></td>
+<td><code>err:reason</code></td>
+</tr>
+<tr>
+<td>success</td>
+<td><code>Some(Ok(hex))</code></td>
+<td><code>Ok hex</code></td>
+<td><code>ok:hex</code></td>
+</tr>
+</tbody>
+</table>
+<p>Typical malformed-file reasons are
+<code>unsupported TIFF header</code>,
+<code>image data without byte counts</code>,
+<code>image data outside file</code>,
+<code>no image data in TIFF</code>,
+<code>RAF CFA data outside file</code>,
+<code>JPEG ends before EOI</code> and <code>JPEG without a scan</code>.
+The TIFF walk has the same kind of bounds as the raw-block walk: at most
+4,096 directories, 8,192 entries per directory and a million values per
+array. A file beyond them fails; it is never truncated into a match.</p>
+<h2 data-number="9.8" id="cost-2"><span
+class="header-section-number">9.8</span> Cost</h2>
+<p>Cheap. The walk reads only the directories and the offset and count
+tags, and the hash reads the image bytes once, from the bytes already in
+memory. There is no decoding. For a raw file the cost is close to one
+SHA-256 pass over the file.</p>
 </body>
 </html>
