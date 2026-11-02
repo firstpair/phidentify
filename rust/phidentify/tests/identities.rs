@@ -6,6 +6,11 @@ use std::path::PathBuf;
 /// Minimal little-endian classic-TIFF DNG: one IFD with DNGVersion, a CFA raw
 /// strip and an out-of-line XMP packet.
 fn dng(raw: &[u8], xmp: &[u8], model_pad: u8) -> Vec<u8> {
+    tiff(raw, xmp, model_pad, true)
+}
+
+/// The same file, with or without DNGVersion (a TIFF-based camera raw).
+fn tiff(raw: &[u8], xmp: &[u8], model_pad: u8, dng_version: bool) -> Vec<u8> {
     // (tag, type, count, value-or-offset placeholder)
     let mut tags: Vec<(u16, u16, u32, Vec<u8>)> = vec![
         (254, 4, 1, 0u32.to_le_bytes().to_vec()),
@@ -20,6 +25,9 @@ fn dng(raw: &[u8], xmp: &[u8], model_pad: u8) -> Vec<u8> {
         (700, 1, xmp.len() as u32, vec![]), // XMP offset, patched below
         (50706, 1, 4, vec![1, 4, 0, 0]),
     ];
+    if !dng_version {
+        tags.pop();
+    }
     let ifd_len = 2 + tags.len() * 12 + 4;
     let xmp_off = 8 + ifd_len + model_pad as usize; // padding moves data without changing it
     let raw_off = xmp_off + xmp.len();
@@ -91,7 +99,7 @@ fn identify_reports_each_identity_separately() {
     std::fs::write(&a, dng(&raw, b"<x:xmpmeta>1</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&b, dng(&raw, b"<x:xmpmeta>22</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&j, b"\xff\xd8\xff\xe0 synthetic").unwrap();
-    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None, dng_semantic: false };
+    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None, dng_semantic: false, image_data: true };
     let (ia, ib, ij) = (identify(&a, opts.clone()).unwrap(), identify(&b, opts.clone()).unwrap(), identify(&j, opts).unwrap());
     assert_ne!(ia.sha256, ib.sha256);
     assert_eq!(ia.dng_raw_blocks_sha256, ib.dng_raw_blocks_sha256);
@@ -129,4 +137,84 @@ fn preserved_digest_follows_unisons_formula_and_ignores_region_bytes() {
     assert_ne!(pa, phidentify::file::preserved_sha256(&c, &region).unwrap());
     assert!(phidentify::file::preserved_sha256(&a, &[(20, 5)]).is_err());
     assert!(phidentify::file::preserved_sha256(&a, &[(6, 4), (8, 2)]).is_err());
+}
+
+/// A baseline JPEG skeleton: APP segments and COM around fixed tables and a scan.
+fn jpeg(app1: &[u8], comment: &[u8], scan: &[u8], trailer: &[u8]) -> Vec<u8> {
+    let seg = |marker: u8, body: &[u8]| {
+        let mut v = vec![0xFF, marker];
+        v.extend_from_slice(&((body.len() + 2) as u16).to_be_bytes());
+        v.extend_from_slice(body);
+        v
+    };
+    let mut out = vec![0xFF, 0xD8];
+    out.extend(seg(0xE1, app1));
+    out.extend(seg(0xDB, &[0; 65]));
+    out.extend(seg(0xC0, &[8, 0, 8, 0, 8, 1, 1, 0x11, 0]));
+    out.extend(seg(0xFE, comment));
+    out.extend(seg(0xC4, &[0; 20]));
+    out.extend(seg(0xDA, &[1, 1, 0, 0, 63, 0]));
+    out.extend_from_slice(scan);
+    out.extend_from_slice(&[0xFF, 0xD9]);
+    out.extend_from_slice(trailer);
+    out
+}
+
+#[test]
+fn image_data_ignores_metadata_of_raws_and_jpegs_but_not_image_bytes() {
+    use phidentify::image_data::sha256;
+    let raw: Vec<u8> = (0..64).collect();
+    let nef = tiff(&raw, b"<x:xmpmeta>2024:10:14 17:36</x:xmpmeta>", 0, false);
+    let shifted = tiff(&raw, b"<x:xmpmeta>2024:10:14 17:42:03</x:xmpmeta>", 5, false);
+    let mut other_raw = raw.clone();
+    other_raw[9] ^= 1;
+    assert_ne!(nef, shifted);
+    assert_eq!(sha256(&nef).unwrap(), sha256(&shifted).unwrap());
+    assert_ne!(sha256(&nef).unwrap(), sha256(&tiff(&other_raw, b"x", 0, false)).unwrap());
+    assert!(sha256(&dng(&raw, b"x", 0)).unwrap_err().to_string().starts_with("DNG"));
+
+    let scan = [1, 2, 0xFF, 0x00, 3, 0xFF, 0xD0, 4];
+    let a = jpeg(b"Exif\0\0 DateTimeOriginal 17:36", b"one", &scan, b"");
+    let b = jpeg(b"Exif\0\0 DateTimeOriginal 17:42:03 longer", b"two", &scan, b"MPF trailer");
+    let mut changed = scan;
+    changed[0] = 9;
+    assert_eq!(sha256(&a).unwrap(), sha256(&b).unwrap());
+    assert_ne!(sha256(&a).unwrap(), sha256(&jpeg(b"Exif", b"one", &changed, b"")).unwrap());
+    assert!(sha256(&a[..a.len() - 2]).is_err(), "a JPEG cut before EOI is refused");
+    assert!(sha256(b"not an image").is_err());
+}
+
+#[test]
+fn image_data_of_rw2_and_raf_spans_their_raw_data() {
+    use phidentify::image_data::sha256;
+    // RW2: IFD0 with only RawDataOffset (280); raw data runs to the end of the file.
+    let rw2 = |meta: &[u8], raw: &[u8]| {
+        let mut f = b"IIU\0".to_vec();
+        f.extend_from_slice(&8u32.to_le_bytes());
+        f.extend_from_slice(&1u16.to_le_bytes());
+        let raw_off = 8 + 2 + 12 + 4 + meta.len();
+        f.extend_from_slice(&280u16.to_le_bytes());
+        f.extend_from_slice(&4u16.to_le_bytes());
+        f.extend_from_slice(&1u32.to_le_bytes());
+        f.extend_from_slice(&(raw_off as u32).to_le_bytes());
+        f.extend_from_slice(&0u32.to_le_bytes());
+        f.extend_from_slice(meta);
+        f.extend_from_slice(raw);
+        f
+    };
+    assert_eq!(sha256(&rw2(b"a", b"RAWDATA")).unwrap(), sha256(&rw2(b"longer meta", b"RAWDATA")).unwrap());
+    assert_ne!(sha256(&rw2(b"a", b"RAWDATA")).unwrap(), sha256(&rw2(b"a", b"RAWDATB")).unwrap());
+    // RAF: header with the CFA offset at 100 and length at 104 (big-endian).
+    let raf = |jpeg: &[u8], cfa: &[u8]| {
+        let mut f = b"FUJIFILMCCD-RAW 0201FF383501".to_vec();
+        f.resize(108, 0);
+        f.extend_from_slice(jpeg);
+        let off = f.len() as u32;
+        f[100..104].copy_from_slice(&off.to_be_bytes());
+        f[104..108].copy_from_slice(&(cfa.len() as u32).to_be_bytes());
+        f.extend_from_slice(cfa);
+        f
+    };
+    assert_eq!(sha256(&raf(b"exif one", b"CFA")).unwrap(), sha256(&raf(b"exif two, shifted", b"CFA")).unwrap());
+    assert_ne!(sha256(&raf(b"x", b"CFA")).unwrap(), sha256(&raf(b"x", b"CFB")).unwrap());
 }

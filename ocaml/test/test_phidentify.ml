@@ -16,7 +16,8 @@ let () =
      assert (i.lightroom = Phidentify.Not_attempted);
      assert (i.metadata = Phidentify.Not_attempted);
      assert (match i.dng_semantic with Phidentify.Failed _ -> true | _ -> false);
-     assert (i.preserved = Phidentify.Not_attempted)
+     assert (i.preserved = Phidentify.Not_attempted);
+     assert (match i.image_data with Phidentify.Failed _ -> true | _ -> false)
    | Error e -> failwith e);
   (match Phidentify.identify (Filename.concat dir "missing") with
    | Error _ -> ()

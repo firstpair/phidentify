@@ -12,6 +12,7 @@ fn main() {
         metadata: mode == "metadata" || mode == "all",
         preserved_regions: None,
         dng_semantic: false,
+        image_data: mode == "image" || mode == "all",
     };
     for arg in args {
         let _ = identify(Path::new(&arg), opts.clone());

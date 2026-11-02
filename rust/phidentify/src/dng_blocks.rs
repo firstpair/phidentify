@@ -14,24 +14,24 @@ const DOMAIN: &[u8] = b"PHIDENTIFY-DNG-ENCODED-RAW-BLOCKS-1\0";
 const ENCODING: &[u16] = &[256, 257, 258, 259, 262, 266, 277, 278, 284, 317, 322, 323, 338, 339, 347, 512,
     515, 517, 518, 519, 520, 521, 529, 530, 531, 532, 50871, 50974, 52543, 52544];
 
-fn u16_at(b: &[u8], big: bool) -> u16 {
+pub(crate) fn u16_at(b: &[u8], big: bool) -> u16 {
     let a = [b[0], b[1]];
     if big { u16::from_be_bytes(a) } else { u16::from_le_bytes(a) }
 }
-fn u32_at(b: &[u8], big: bool) -> u32 {
+pub(crate) fn u32_at(b: &[u8], big: bool) -> u32 {
     let a = b[0..4].try_into().unwrap();
     if big { u32::from_be_bytes(a) } else { u32::from_le_bytes(a) }
 }
-fn u64_at(b: &[u8], big: bool) -> u64 {
+pub(crate) fn u64_at(b: &[u8], big: bool) -> u64 {
     let a = b[0..8].try_into().unwrap();
     if big { u64::from_be_bytes(a) } else { u64::from_le_bytes(a) }
 }
-fn slice(f: &[u8], off: u64, len: u64) -> Result<&[u8]> {
+pub(crate) fn slice(f: &[u8], off: u64, len: u64) -> Result<&[u8]> {
     let end = off.checked_add(len).filter(|&e| e <= f.len() as u64);
     let Some(end) = end else { bail!("TIFF offset outside file") };
     Ok(&f[off as usize..end as usize])
 }
-fn type_size(kind: u16) -> Option<u64> {
+pub(crate) fn type_size(kind: u16) -> Option<u64> {
     match kind {
         1 | 2 | 6 | 7 => Some(1),
         3 | 8 => Some(2),

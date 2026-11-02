@@ -1,7 +1,8 @@
 //! C ABI over phidentify. One call returns every requested identity as
 //! NUL-separated fields, each `ok:<value>`, `err:<reason>` or empty when not
 //! attempted, in this order: sha256, dng raw blocks, lightroom digest,
-//! metadata digest, preserved (complement) digest, metadata record JSON.
+//! metadata digest, preserved (complement) digest, metadata record JSON, image
+//! data digest.
 //! With `FLAG_COMPACT_RECORD` the record is [`phidentify::metadata::compact`]ed.
 use phidentify::{Options, Outcome, identify};
 
@@ -19,6 +20,7 @@ pub const FLAG_DNG_BLOCKS: u32 = 1;
 pub const FLAG_LIGHTROOM: u32 = 2;
 pub const FLAG_METADATA: u32 = 4;
 pub const FLAG_COMPACT_RECORD: u32 = 8;
+pub const FLAG_IMAGE_DATA: u32 = 16;
 
 fn field(o: &Outcome) -> String {
     match o {
@@ -36,6 +38,7 @@ pub fn identify_fields(path: &Path, flags: u32, regions: Option<Vec<(u64, u64)>>
         metadata: flags & FLAG_METADATA != 0,
         preserved_regions: regions,
         dng_semantic: false,
+        image_data: flags & FLAG_IMAGE_DATA != 0,
     };
     let id = identify(path, opts).map_err(|e| format!("{e:#}"))?;
     let record = match &id.metadata_json {
@@ -44,7 +47,7 @@ pub fn identify_fields(path: &Path, flags: u32, regions: Option<Vec<(u64, u64)>>
         Some(j) => format!("ok:{}", j.replace('\0', " ")),
     };
     Ok([format!("ok:{}", id.sha256), field(&id.dng_raw_blocks_sha256), field(&id.lightroom_digest),
-        field(&id.metadata_digest), field(&id.preserved_sha256), record].join("\0"))
+        field(&id.metadata_digest), field(&id.preserved_sha256), record, field(&id.image_data_sha256)].join("\0"))
 }
 
 #[cfg(feature = "metadata")]

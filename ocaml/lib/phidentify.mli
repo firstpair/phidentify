@@ -14,7 +14,11 @@
       (["dng-xmp/0"], ["/1"], ["/2"], Semantic Unison's profiles) that accepts
       the DNG, and Unison's [SDE/0-preserved] digest of every byte outside its
       primary XMP packet, with size and layout bound in. Equal [preserved]
-      means only the XMP packet can differ. *)
+      means only the XMP packet can differ.
+    - [image_data]: the stored image bytes of a camera raw, TIFF or JPEG that
+      is not a DNG (strips and tiles; RW2 raw data; RAF CFA; JPEG frame,
+      tables and scans without APPn/COM). A metadata edit such as a
+      capture-time shift keeps it; re-encoding does not. *)
 
 type outcome = Not_attempted | Ok of string | Failed of string
 
@@ -28,10 +32,11 @@ type identity = {
   metadata_record : string option;
   (** exiftool-rs JSON, when requested; with [compact_record], string members
       over 1 KiB are replaced by [long-sha256:<hex>:<length>]. *)
+  image_data : outcome;
 }
 
 type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
-                 dng_semantic : bool; compact_record : bool }
+                 dng_semantic : bool; compact_record : bool; image_data : bool }
 
 val all : request
 (** Every identity the linked library supports. *)
