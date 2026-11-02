@@ -17,3 +17,4 @@ metadata = ["phidentify/metadata"]
 
 [dependencies]
 phidentify = { path = "../phidentify", default-features = false }
+mimalloc = "0.1"

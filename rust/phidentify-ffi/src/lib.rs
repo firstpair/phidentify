@@ -4,6 +4,13 @@
 //! metadata digest, preserved (complement) digest, metadata record JSON.
 //! With `FLAG_COMPACT_RECORD` the record is [`phidentify::metadata::compact`]ed.
 use phidentify::{Options, Outcome, identify};
+
+// The macOS system allocator fragments under exiftool-rs's allocation pattern and
+// keeps the memory: about 0.5 MB per extracted file, unbounded over a long run.
+// mimalloc returns it (a 20-file loop stays flat), so the library uses it for all
+// Rust allocations. OCaml's own heap is unaffected.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::{panic, ptr, slice};
