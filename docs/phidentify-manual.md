@@ -180,11 +180,11 @@ cargo run --release --example identify -- photo.dng notes.txt
 cargo run --release --features phidentify/metadata --example identify -- photo.dng
 ```
 
-On a synthetic text file and a truncated TIFF it prints (stamps shortened):
+On a synthetic text file, a truncated TIFF and a missing path it prints (shortened with …):
 
 ```json
-{"identity":{"dng_raw_blocks_sha256":null,"lightroom_digest":null,"metadata_digest":null,"preserved_sha256":null,"sha256":"c63c33f0…","stamp":{…}},"path":"notes.txt"}
-{"identity":{"dng_raw_blocks_sha256":{"Err":"No DNG raw image found"},"lightroom_digest":null,…},"path":"tiny.tif"}
+{"identity":{"dng_raw_blocks_sha256":null,…,"sha256":"c63c33f0…"},"path":"notes.txt"}
+{"identity":{"dng_raw_blocks_sha256":{"Err":"No DNG raw image found"},…},"path":"tiny.tif"}
 {"error":"stat missing: No such file or directory (os error 2)","path":"missing"}
 ```
 
