@@ -16,6 +16,14 @@ type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
 
 let all = { dng_raw_blocks = true; lightroom = true; metadata = true; dng_semantic = true; compact_record = false;
             image_data = true }
+let image_data_not_applicable = "not a TIFF-family file or JPEG"
+let image_data_dng = "DNG: the raw-block identity applies instead"
+let image_data_prefix_len = 16
+
+let image_data_candidate p =
+  let starts s = String.starts_with ~prefix:s p in
+  starts "\xff\xd8\xff" || starts "FUJIFILMCCD-RAW" || (String.length p >= 4 && (starts "II" || starts "MM"))
+
 let version = Ffi.version
 let backend = Pool.backend
 let recommended_workers = Pool.recommended

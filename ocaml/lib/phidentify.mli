@@ -41,6 +41,17 @@ type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
 val all : request
 (** Every identity the linked library supports. *)
 
+val image_data_candidate : string -> bool
+(** Whether a file starting with these bytes (its first [image_data_prefix_len],
+    or all of a shorter file) can have [image_data]; when false, its
+    [image_data] fails with [image_data_not_applicable]. Same test as the Rust
+    [image_data::candidate]. *)
+
+val image_data_prefix_len : int
+val image_data_not_applicable : string
+val image_data_dng : string
+(** The reasons [image_data] gives for a non-candidate and for a DNG. *)
+
 val version : unit -> string
 (** e.g. ["phidentify 0.1.0 +lightroom +metadata"]. *)
 
