@@ -53,7 +53,7 @@ the shared FirstPair publisher, dry run first:
 ```sh
 cd "$HOME/src/firstpair"
 npm run library:publish -- "$HOME/src/phidentify" \
-  --slug phidentify --shelf photography,unix --title 'phidentify' \
+  --slug phidentify --title 'phidentify' \
   --description 'Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest, from Rust, C, OCaml and OxCaml.' \
   --kicker 'Fingerprints for photos' \
   --tags photography,dng,lightroom,rust,ocaml,oxcaml \
@@ -61,7 +61,8 @@ npm run library:publish -- "$HOME/src/phidentify" \
   --dry-run --no-build --no-smoke --no-deploy --no-icloud
 ```
 
-then the same command without the dry-run flags. Never pass `--full` without the
+then the same command without the dry-run flags. The shelves come from the
+`shelf:` header above; passing `--shelf` as well is refused as a conflict. Never pass `--full` without the
 user's explicit confirmation: it replaces the public preview with the full edition.
 
 Both repositories must be clean and pushed before uploading. Commit and push the
