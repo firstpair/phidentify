@@ -1009,6 +1009,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tiffgraph",
 ]
 
 [[package]]
@@ -1323,6 +1324,11 @@ dependencies = [
  "quote",
  "syn 3.0.9",
 ]
+
+[[package]]
+name = "tiffgraph"
+version = "0.1.0"
+source = "git+https://github.com/firstpair/tiffgraph?rev=842cdac13d25e1232190e714d7924446f626c42a#842cdac13d25e1232190e714d7924446f626c42a"
 
 [[package]]
 name = "toml"

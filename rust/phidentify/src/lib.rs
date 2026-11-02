@@ -15,6 +15,8 @@ pub mod file;
 pub mod lightroom;
 #[cfg(feature = "metadata")]
 pub mod metadata;
+#[cfg(feature = "semantic")]
+pub mod semantic;
 
 use anyhow::{Result, ensure};
 use serde::Serialize;
@@ -32,6 +34,9 @@ pub struct Options {
     /// Editable regions found by a tiffgraph walk; when given, the
     /// `SDE/0-preserved` complement digest is computed over the same bytes.
     pub preserved_regions: Option<Vec<(u64, u64)>>,
+    /// Walk the in-memory bytes with tiffgraph (strictest of dng-xmp/0, /1, /2)
+    /// and take `preserved_regions` from it; needs the `semantic` feature.
+    pub dng_semantic: bool,
 }
 
 /// An identity that was not attempted is `None`; one that failed or does not
@@ -46,6 +51,8 @@ pub struct Identity {
     pub lightroom_digest: Outcome,
     pub metadata_digest: Outcome,
     pub preserved_sha256: Outcome,
+    /// `Ok(profile)` of the strictest tiffgraph grammar that accepts the file.
+    pub dng_semantic_profile: Outcome,
     #[serde(skip)]
     pub metadata_json: Option<String>,
 }
@@ -90,10 +97,25 @@ pub fn identify(path: &Path, opts: Options) -> Result<Identity> {
     #[cfg(not(feature = "metadata"))]
     let (metadata_digest, metadata_json) =
         (opts.metadata.then(|| Err("built without the metadata feature".to_string())), None);
-    let preserved_sha256 = opts.preserved_regions.as_deref().map(|regions| match bytes.as_deref() {
+    #[cfg(feature = "semantic")]
+    let walked = opts.dng_semantic.then(|| match bytes.as_deref() {
+        Some(b) => semantic::strictest(b),
+        None => Err("file over the in-memory limit".to_string()),
+    });
+    #[cfg(not(feature = "semantic"))]
+    let walked: Option<std::result::Result<(String, Vec<(u64, u64)>), String>> =
+        opts.dng_semantic.then(|| Err("built without the semantic feature".to_string()));
+    let regions = match &walked {
+        Some(Ok((_, r))) => Some(r.clone()),
+        Some(Err(_)) => None,
+        None => opts.preserved_regions.clone(),
+    };
+    let dng_semantic_profile = walked.as_ref().map(|w| w.as_ref().map(|(p, _)| p.clone()).map_err(|e| e.clone()));
+    let preserved_sha256 = regions.as_deref().map(|regions| match bytes.as_deref() {
         Some(b) => file::preserved_sha256(b, regions).map_err(|e| e.to_string()),
         None => Err("file over the in-memory limit".to_string()),
     });
     ensure!(file::stamp(path)? == before, "file changed while being identified");
-    Ok(Identity { stamp: before, sha256, dng_raw_blocks_sha256, lightroom_digest, metadata_digest, preserved_sha256, metadata_json })
+    Ok(Identity { stamp: before, sha256, dng_raw_blocks_sha256, lightroom_digest, metadata_digest, preserved_sha256,
+                  dng_semantic_profile, metadata_json })
 }

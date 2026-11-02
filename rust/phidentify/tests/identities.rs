@@ -91,7 +91,7 @@ fn identify_reports_each_identity_separately() {
     std::fs::write(&a, dng(&raw, b"<x:xmpmeta>1</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&b, dng(&raw, b"<x:xmpmeta>22</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&j, b"\xff\xd8\xff\xe0 synthetic").unwrap();
-    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None };
+    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None, dng_semantic: false };
     let (ia, ib, ij) = (identify(&a, opts.clone()).unwrap(), identify(&b, opts.clone()).unwrap(), identify(&j, opts).unwrap());
     assert_ne!(ia.sha256, ib.sha256);
     assert_eq!(ia.dng_raw_blocks_sha256, ib.dng_raw_blocks_sha256);

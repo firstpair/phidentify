@@ -11,6 +11,7 @@ fn main() {
         lightroom: mode == "lightroom" || mode == "all",
         metadata: mode == "metadata" || mode == "all",
         preserved_regions: None,
+        dng_semantic: false,
     };
     for arg in args {
         let _ = identify(Path::new(&arg), opts.clone());

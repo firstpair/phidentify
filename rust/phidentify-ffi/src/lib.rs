@@ -35,6 +35,7 @@ pub fn identify_fields(path: &Path, flags: u32, regions: Option<Vec<(u64, u64)>>
         lightroom: flags & FLAG_LIGHTROOM != 0,
         metadata: flags & FLAG_METADATA != 0,
         preserved_regions: regions,
+        dng_semantic: false,
     };
     let id = identify(path, opts).map_err(|e| format!("{e:#}"))?;
     let record = match &id.metadata_json {
