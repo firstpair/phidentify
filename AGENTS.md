@@ -16,3 +16,6 @@ local constraints.
 - Build and test with `make test`, and the OCaml package in both switches:
   `opam exec --switch default -- dune test --force` and
   `opam exec --switch 5.2.0+ox -- dune test --force` in `ocaml/`.
+- `ocaml/tiff` (`phidentify-tiff`) holds the grammars that Semantic Unison's
+  `org.firstpair.dng-xmp/0`, `/1` and `/2` profiles negotiate. Changing what a
+  grammar admits changes those profiles: coordinate with Unison first.
