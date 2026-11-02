@@ -1,7 +1,7 @@
 ---
 title: "Which \"same\"? Named identities for a photo archive"
 date: 2026-11-02
-author: "Alexy Khrabrov, with Claude as co-author"
+author: "Alexy Khrabrov"
 slug: "phidentify"
 canonical_url: "https://firstpair.press/phidentify/"
 tags:
@@ -16,11 +16,9 @@ tags:
 
 ![Two Victorian detectives study fingerprints on cased portrait photographs with a magnifying glass.](../../../cover/phidentify-headboard.png)
 
-This post is by Alexy Khrabrov, with Claude as co-author. The ideas are Alexy's; Claude wrote the text and the code with him.
-
 Every photo archive eventually asks the same small question: is this the same photo as that one? It sounds like a yes-or-no question. It is really five questions wearing one word, and an archive gets into trouble when it answers one of them and acts as if it had answered another.
 
-[phidentify](https://github.com/firstpair/phidentify) is our answer to that. It computes several identities for a photo file, gives each one a name, and refuses to let any of them stand in for another. It is a Rust library with a C ABI and an OCaml package that builds with both stock OCaml and OxCaml. The [manual](https://firstpair.org/books/phidentify/) is now a preview on the First Pair Photography shelf.
+[phidentify](https://github.com/firstpair/phidentify) is our answer to that. It computes several identities for a photo file, gives each one a name, and refuses to let any of them stand in for another. It is a Rust library with a C ABI and an OCaml package that builds with both stock OCaml and OxCaml. The [manual](https://firstpair.org/books/phidentify/) is now a preview on the First Pair Photography and Unix shelves.
 
 ## Five questions behind one word
 
@@ -83,3 +81,5 @@ With the identities named, the archive questions get short answers. Is this file
 None of those answers is hard. What is hard is keeping them apart, especially when one of them is missing. phidentify's rule is the one that makes an archive trustworthy: a failed or missing identity is not a match, and one identity never answers for another.
 
 The [manual](https://firstpair.org/books/phidentify/) covers each identity in detail, with exact formulas, failure reporting and cost, the Rust, C and OCaml interfaces, and a worked guide to which identity answers which question. Its [PDF](https://firstpair.org/phidentify/pdf/), [EPUB](https://firstpair.org/phidentify/epub/) and [HTML](https://firstpair.org/read/phidentify/) editions are on the shelf, and the code is MIT-licensed at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
+
+*Colophon: written by Alexy Khrabrov with Claude as co-author. The ideas are Alexy's; Claude wrote the text and the code with him.*

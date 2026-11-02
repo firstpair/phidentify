@@ -1,5 +1,5 @@
 slug: phidentify
-shelf: photography
+shelf: photography, unix
 default_edition: preview
 
 # Publication contract
@@ -11,7 +11,9 @@ FirstPair owns catalog entries, stable download and reader routes, and Blob
 manifests. Follow the shared `~/src/firstpair/AGENTS.md` publication and
 source-ownership rules.
 
-The manual is by Alexy Khrabrov with Claude as co-author. The code and manual are
+The manual is by Alexy Khrabrov, the author on the cover and in all title metadata.
+Claude is credited as co-author only on the information page ("About this manual")
+and in the blog post's closing colophon. The code and manual are
 MIT. The manual describes the Lightroom Classic fingerprint at the level of this
 repository's source only: no Adobe code, binaries, disassembly or decompiled bodies.
 Photos, catalogs, personal paths and catalog or cloud identifiers stay out.
@@ -51,7 +53,7 @@ the shared FirstPair publisher, dry run first:
 ```sh
 cd "$HOME/src/firstpair"
 npm run library:publish -- "$HOME/src/phidentify" \
-  --slug phidentify --shelf photography --title 'phidentify' \
+  --slug phidentify --shelf photography,unix --title 'phidentify' \
   --description 'Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest, from Rust, C, OCaml and OxCaml.' \
   --kicker 'Fingerprints for photos' \
   --tags photography,dng,lightroom,rust,ocaml,oxcaml \

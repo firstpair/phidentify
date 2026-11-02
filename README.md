@@ -101,7 +101,7 @@ with Semantic Unison, lives in its own repository, `tiffgraph` (opam
 
 The manual, [docs/phidentify-manual.md](docs/phidentify-manual.md), describes each
 identity in detail: inputs, what equality proves and does not, reporting, cost, and
-which identity answers which question. It is on the First Pair Photography shelf at
+which identity answers which question. It is on the First Pair Photography and Unix shelves at
 [firstpair.org/books/phidentify](https://firstpair.org/books/phidentify/);
 `FIRSTPAIR.md` records how it is built and published.
 
