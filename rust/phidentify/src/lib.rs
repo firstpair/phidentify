@@ -105,7 +105,7 @@ pub fn identify(path: &Path, opts: Options) -> Result<Identity> {
     #[cfg(feature = "semantic")]
     let walked = opts.dng_semantic.then(|| match bytes.as_deref() {
         Some(b) => semantic::strictest(b),
-        None => Err("file over the in-memory limit".to_string()),
+        None => semantic::strictest_file(path),
     });
     #[cfg(not(feature = "semantic"))]
     let walked: Option<std::result::Result<(String, Vec<(u64, u64)>), String>> =
