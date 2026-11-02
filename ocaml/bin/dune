@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name phidentify)
+ (link_deps ../lib/libphidentify_ffi.a)
+ (libraries phidentify))

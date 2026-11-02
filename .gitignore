@@ -1,0 +1,4 @@
+target/
+ocaml/_build/
+*.install
+.DS_Store

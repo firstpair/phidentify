@@ -1,0 +1,22 @@
+opam-version: "2.0"
+name: "phidentify"
+version: "0.1.0"
+synopsis: "Named photo-file identities (SHA-256, DNG raw blocks, Lightroom fingerprint, metadata) for OCaml and OxCaml"
+description: """
+Binds the phidentify Rust library through its C ABI and runs a domain-parallel
+pool. Builds with stock OCaml 5 (Domain.spawn) and with OxCaml
+(Domain.Safe.spawn with portable closures).
+"""
+maintainer: "Alexy Khrabrov"
+authors: ["Alexy Khrabrov"]
+license: "MIT"
+homepage: "https://github.com/firstpair/phidentify"
+bug-reports: "https://github.com/firstpair/phidentify/issues"
+depends: [
+  "ocaml" {>= "5.1"}
+  "dune" {>= "3.9"}
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]

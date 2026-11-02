@@ -1,0 +1,4 @@
+(test
+ (name test_phidentify)
+ (deps ../lib/libphidentify_ffi.a)
+ (libraries phidentify unix))

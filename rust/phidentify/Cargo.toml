@@ -1,0 +1,30 @@
+[package]
+name = "phidentify"
+version = "0.1.0"
+description = "Separate, named identities for photo files: whole-file SHA-256, DNG encoded raw blocks, Lightroom original fingerprint, metadata record"
+license = "MIT"
+edition = "2024"
+rust-version = "1.99"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[features]
+default = ["lightroom"]
+# Lightroom original fingerprint for supported DNG strata (decodes with rawler).
+lightroom = ["dep:rawler", "dep:md-5", "dep:serde_json"]
+# exiftool-rs metadata records through dng-compare's engine crate.
+# Links GPL-3.0-or-later code; see dng-compare rust-scanner/exiftool-ffi/THIRD-PARTY.md.
+metadata = ["dep:dng-exiftool-ffi", "dep:serde_json"]
+
+[dependencies]
+anyhow = "1.0.104"
+serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.0"
+md-5 = { version = "0.11.0", optional = true }
+rawler = { version = "=0.8.0", optional = true }
+serde_json = { version = "1.0.151", optional = true }
+dng-exiftool-ffi = { git = "https://github.com/firstpair/dng-compare", rev = "f68627f2a88eb5bbbd642fb7cad605e3dfa05cec", optional = true }
+
+[dev-dependencies]
+serde_json = "1.0.151"
