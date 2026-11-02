@@ -119,6 +119,10 @@ Two environment variables control how the Rust library is linked:
 - `PHIDENTIFY_FFI_LIBDIR` names the directory holding the Rust artifacts. The default is `../rust/target/release`, relative to the `ocaml/` project.
 - `PHIDENTIFY_FFI_LINK` is `static` (the default) or `dynamic`. In static mode the archive is copied into the build tree as a tracked file, so a rebuilt Rust library relinks the executables, and it is installed beside the OCaml library with `phidentify.h`. In dynamic mode the shared library is linked with an rpath to its directory.
 
+## Memory
+
+The C library, `phidentify-ffi`, uses mimalloc as the global allocator for Rust allocations. Under the macOS system allocator, metadata extraction through exiftool-rs fragmented the heap and kept about 0.5 MB resident per file in long multi-domain runs; with mimalloc it stays flat. The Rust crate itself leaves the allocator to the program that links it. To measure peak memory one identity at a time, run the probe example: `cargo run --release --example memprobe -- MODE FILE...`, where `MODE` is `sha`, `blocks`, `lightroom`, `metadata` or `all`.
+
 # Using it
 
 ## Rust
