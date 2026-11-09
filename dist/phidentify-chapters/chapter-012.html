@@ -145,6 +145,12 @@ class="header-section-number">11.6</span> Reporting</h2>
 <td>always <code>-</code></td>
 </tr>
 <tr>
+<td>a file type the engine does not read</td>
+<td><code>None</code></td>
+<td><code>Not_attempted</code></td>
+<td><code>-</code></td>
+</tr>
+<tr>
 <td>built without the <code>metadata</code> feature</td>
 <td><code>Some(Err("built without the metadata feature"))</code></td>
 <td><code>Failed</code></td>
@@ -168,7 +174,20 @@ class="header-section-number">11.6</span> Reporting</h2>
 member in its record. phidentify turns that member into a failure. It is
 never treated as an empty record, and two failed files never share a
 digest.</p>
-<p>The metadata identity is attempted for any file, not only DNGs.</p>
+<p>The metadata identity is attempted only for a file whose extension
+the engine reads, by exiftool-rs’s own extension table: DNGs and other
+raws, JPEGs, TIFFs, HEIC, JPEG XL, XMP sidecars, videos and the rest of
+that table. Any other file is not attempted, so its outcome is
+<code>None</code>, not a failure. A Capture One <code>.cop</code> cache
+proxy, an <code>.ini</code> or a <code>.dat</code> has no metadata
+record, and is not reported as a file whose metadata could not be read.
+The test looks at the name only, so a <code>.cop</code> whose first
+bytes happen to be a JPEG XL stream is still not read: what the file is
+for, not what its bytes resemble, decides.
+<code>metadata::reads(path)</code> (OCaml
+<code>Phidentify.reads_metadata</code>, C
+<code>phidentify_reads_metadata</code>) makes the test without opening
+the file.</p>
 <h2 data-number="11.7" id="cost-4"><span
 class="header-section-number">11.7</span> Cost</h2>
 <p>Moderate. The engine reads the file again from its path and decodes
