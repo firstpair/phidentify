@@ -52,6 +52,11 @@ val image_data_not_applicable : string
 val image_data_dng : string
 (** The reasons [image_data] gives for a non-candidate and for a DNG. *)
 
+val reads_metadata : string -> bool
+(** Whether the metadata identity applies to this path: the engine reads files
+    with its extension. Any other file (a Capture One [.cop] cache proxy, an
+    [.ini]) is not attempted, and its [metadata] is [Not_attempted]. No I/O. *)
+
 val version : unit -> string
 (** e.g. ["phidentify 0.2.0 +lightroom +metadata"]. *)
 

@@ -91,7 +91,7 @@ pub fn identify(path: &Path, opts: Options) -> Result<Identity> {
     #[cfg(not(feature = "lightroom"))]
     let lightroom_digest = (opts.lightroom && is_dng).then(|| Err("built without the lightroom feature".to_string()));
     #[cfg(feature = "metadata")]
-    let (metadata_digest, metadata_json) = if opts.metadata {
+    let (metadata_digest, metadata_json) = if opts.metadata && metadata::reads(path) {
         match metadata::extract(path) {
             Ok(r) => (Some(Ok(r.digest)), Some(r.json)),
             Err(e) => (Some(Err(e.to_string())), None),

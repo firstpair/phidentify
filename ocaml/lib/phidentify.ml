@@ -25,6 +25,7 @@ let image_data_candidate p =
   starts "\xff\xd8\xff" || starts "FUJIFILMCCD-RAW" || (String.length p >= 4 && (starts "II" || starts "MM"))
 
 let version = Ffi.version
+let reads_metadata = Ffi.reads_metadata
 let backend = Pool.backend
 let recommended_workers = Pool.recommended
 

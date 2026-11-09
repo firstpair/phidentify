@@ -218,3 +218,26 @@ fn image_data_of_rw2_and_raf_spans_their_raw_data() {
     assert_eq!(sha256(&raf(b"exif one", b"CFA")).unwrap(), sha256(&raf(b"exif two, shifted", b"CFA")).unwrap());
     assert_ne!(sha256(&raf(b"x", b"CFA")).unwrap(), sha256(&raf(b"x", b"CFB")).unwrap());
 }
+
+/// The metadata identity is attempted only for extensions the engine reads: the
+/// same DNG bytes named as a Capture One `.cop` cache proxy are not attempted
+/// (None, not a failure), and an `.ini` is not either.
+#[cfg(feature = "metadata")]
+#[test]
+fn metadata_only_for_extensions_the_engine_reads() {
+    let dir = std::env::temp_dir().join(format!("phidentify-test-md-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let bytes = dng(&(0..64).collect::<Vec<u8>>(), b"<x:xmpmeta>1</x:xmpmeta>", 0);
+    let (d, c, i) = (dir.join("a.DNG"), dir.join("a.DNG.cop"), dir.join("settings.ini"));
+    std::fs::write(&d, &bytes).unwrap();
+    std::fs::write(&c, &bytes).unwrap();
+    std::fs::write(&i, b"[x]\ny=1\n").unwrap();
+    let opts = Options { dng_blocks: false, lightroom: false, metadata: true, preserved_regions: None, dng_semantic: false, image_data: false };
+    let id = |p: &PathBuf| identify(p, opts.clone()).unwrap();
+    assert!(id(&d).metadata_digest.is_some(), "a .DNG is attempted");
+    for p in [&c, &i] {
+        let r = id(p);
+        assert_eq!((r.metadata_digest, r.metadata_json), (None, None), "{}", p.display());
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

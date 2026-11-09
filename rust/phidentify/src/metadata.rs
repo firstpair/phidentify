@@ -24,6 +24,15 @@ pub struct Record {
     pub digest: String,
 }
 
+/// Whether the metadata identity applies to `path`: the engine reads files with
+/// its extension (`dng_exiftool_ffi::reads_extension`, no I/O). Any other file,
+/// such as a Capture One `.cop` cache proxy, `.ini` or `.dat`, is not attempted:
+/// its outcome is `None`, not a failure, even when its first bytes would let
+/// the engine sniff a format it reads.
+pub fn reads(path: &Path) -> bool {
+    dng_exiftool_ffi::reads_extension(path)
+}
+
 pub fn extract(path: &Path) -> Result<Record> {
     let json = dng_exiftool_ffi::record_json(path);
     let value: Value = serde_json::from_str(&json)?;

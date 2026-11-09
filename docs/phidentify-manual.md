@@ -584,13 +584,14 @@ The full record is available too: `metadata_json` in Rust, `metadata_record` in 
 | Situation | Rust | OCaml | Command |
 | --- | --- | --- | --- |
 | not requested | `None` | `Not_attempted` | always `-` |
+| a file type the engine does not read | `None` | `Not_attempted` | `-` |
 | built without the `metadata` feature | `Some(Err("built without the metadata feature"))` | `Failed` | — |
 | the engine reports an error | `Some(Err("metadata extraction failed: …"))` | `Failed` | — |
 | success | `Some(Ok(hex))` | `Ok hex` | — |
 
 The engine reports a failed file as an `ExifTool:Error` member in its record. phidentify turns that member into a failure. It is never treated as an empty record, and two failed files never share a digest.
 
-The metadata identity is attempted for any file, not only DNGs.
+The metadata identity is attempted only for a file whose extension the engine reads, by exiftool-rs's own extension table: DNGs and other raws, JPEGs, TIFFs, HEIC, JPEG XL, XMP sidecars, videos and the rest of that table. Any other file is not attempted, so its outcome is `None`, not a failure. A Capture One `.cop` cache proxy, an `.ini` or a `.dat` has no metadata record, and is not reported as a file whose metadata could not be read. The test looks at the name only, so a `.cop` whose first bytes happen to be a JPEG XL stream is still not read: what the file is for, not what its bytes resemble, decides. `metadata::reads(path)` (OCaml `Phidentify.reads_metadata`, C `phidentify_reads_metadata`) makes the test without opening the file.
 
 ## Cost
 

@@ -101,6 +101,25 @@ pub unsafe extern "C" fn phidentify_identify(path: *const u8, path_len: usize, f
     }
 }
 
+/// 1 when the metadata identity applies to `path` (the engine reads its
+/// extension; `metadata::reads`), else 0; 2 for invalid arguments. Without the
+/// `metadata` feature, 0. No I/O.
+///
+/// # Safety
+/// `path` must point to `path_len` readable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn phidentify_reads_metadata(path: *const u8, path_len: usize) -> i32 {
+    if path.is_null() {
+        return 2;
+    }
+    // SAFETY: guaranteed by the caller.
+    let bytes = unsafe { slice::from_raw_parts(path, path_len) };
+    #[cfg(feature = "metadata")]
+    return i32::from(phidentify::metadata::reads(Path::new(std::ffi::OsStr::from_bytes(bytes))));
+    #[cfg(not(feature = "metadata"))]
+    return { let _ = bytes; 0 };
+}
+
 /// # Safety
 /// `out`/`out_len` must be writable.
 #[unsafe(no_mangle)]

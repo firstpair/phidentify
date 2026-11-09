@@ -23,6 +23,10 @@ CAMLprim value phidentify_version_stub(value unit) {
   CAMLreturn(take_string(out, len));
 }
 
+CAMLprim value phidentify_reads_metadata_stub(value path) {
+  return Val_bool(phidentify_reads_metadata((const uint8_t *)String_val(path), caml_string_length(path)) == 1);
+}
+
 /* identify path flags regions: regions is None (no complement digest) or
  * Some of an int64 array of (offset, length) pairs. Returns (status, payload):
  * status 0 = NUL-separated fields, 1 = the file could not be identified.
