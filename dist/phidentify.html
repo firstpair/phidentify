@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc 3.12.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="dcterms.date" content="2026-11-09" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>phidentify</title>
   <style>
@@ -114,7 +114,7 @@ figcaption { font-size: .88em; font-style: italic; color: #3b5563; margin-top: .
 <h1 class="title">phidentify</h1>
 <p class="subtitle">Fingerprints for photos</p>
 <p class="author">Alexy Khrabrov</p>
-<p class="date">2026-11-02</p>
+<p class="date">2026-11-09</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -223,6 +223,7 @@ capture-time shift?</a></li>
 catalog recorded?</a></li>
 <li><a href="#did-the-shuttle-copy-arrive-intact" id="toc-did-the-shuttle-copy-arrive-intact"><span class="toc-section-number">14.5</span> Did the shuttle copy arrive
 intact?</a></li>
+<li><a href="#can-i-delete-this-copy" id="toc-can-i-delete-this-copy"><span class="toc-section-number">14.6</span> Can I delete this copy?</a></li>
 </ul></li>
 <li><a href="#testing" id="toc-testing"><span class="toc-section-number">15</span> Testing</a></li>
 <li><a href="#licences" id="toc-licences"><span class="toc-section-number">16</span> Licences</a></li>
@@ -323,6 +324,41 @@ phidentify checks that the file did not change while it was identified.
 If it did, the whole result is an error.</li>
 </ol>
 <h2 data-number="2.1" id="where-it-fits"><span class="header-section-number">2.1</span> Where it fits</h2>
+<p>This book is one of nine on the FirstPair photo tools. Each owns one
+part, and <a href="https://firstpair.org/books/photostack/">The
+FirstPair Photo Stack</a> shows how they fit together.</p>
+<ul>
+<li><strong><a href="https://firstpair.org/books/tiffgraph/">tiffgraph</a></strong>
+walks a TIFF or DNG file’s structure under a fixed grammar and finds its
+editable XMP packet.</li>
+<li><strong><a href="https://firstpair.org/books/phidentify/">phidentify</a></strong>
+computes a photo’s identities: SHA-256, DNG raw blocks, image data,
+Lightroom fingerprint, metadata record and preserved digest.</li>
+<li><strong><a href="https://firstpair.org/books/phindex/">phindex</a></strong> keeps
+those identities for every file of a volume, and aligns two volumes by
+content.</li>
+<li><strong><a href="https://firstpair.org/books/dng-compare/">DNG
+Compare</a></strong> compares pairs and preserves one side byte for byte
+as deltas against the other, with a searchable metadata section, through
+<code>dngc</code>.</li>
+<li><strong><a href="https://firstpair.org/books/semantic-unison/">Semantic
+Unison</a></strong> synchronizes photo trees, sending metadata edits
+without resending image bytes, and preserves what a shuttle disk brings
+into the same archives.</li>
+<li><strong><a href="https://firstpair.org/books/packdir/">packdir</a></strong> keeps
+directories of small files as SQLite archives that still work like plain
+files.</li>
+<li><strong><a href="https://firstpair.org/books/tursolite/">Tursolite</a></strong> is
+the SQLite and Turso layer under packdir, DNG Compare and Mechanic.</li>
+<li><strong><a href="https://firstpair.org/books/diskproxy/">diskproxy</a></strong>
+serves a folder as a virtual disk, such as previews with camera metadata
+spliced in, and captures ratings into sidecars.</li>
+<li><strong><a href="https://firstpair.org/books/lightroom-repair/">Lightroom
+Repair</a></strong> repairs Lightroom Classic catalogs, previews and
+Sync without forging their state.</li>
+</ul>
+<h3 data-number="2.1.1" id="how-phidentify-serves-them"><span class="header-section-number">2.1.1</span> How phidentify serves
+them</h3>
 <p>phidentify is one of three sister projects that grew out of the same
 photo-archive work. Each owns a different piece.</p>
 <ul>
@@ -1209,7 +1245,13 @@ by <code>long-sha256:&lt;hex&gt;:&lt;length&gt;</code>, the SHA-256 and
 byte length of the original string. Compact records are for storage. The
 digest is always taken over the full record, never the compact one. In
 OCaml, set <code>compact_record = true</code> in the request; over the C
-ABI, pass <code>PHIDENTIFY_COMPACT_RECORD</code>.</li>
+ABI, pass <code>PHIDENTIFY_COMPACT_RECORD</code>. Why 1 KiB: the strings
+above that size are almost never the fields people search or compare,
+such as camera, lens, exposure, dates, ratings and keywords. They are
+payloads, such as embedded thumbnails, profile tables and maker-note
+blobs. They make up most of a record’s bytes. Kept as a hash and a
+length, they still show whether two files differ there; DNG Compare’s
+archives keep the bytes themselves.</li>
 <li><code>metadata::diff(left, right)</code> lists the top-level members
 whose values differ between two records, ignoring location members. Each
 difference is <code>(key, left value, right value)</code>, with
@@ -1618,6 +1660,20 @@ arrival, SHA-256 will differ. The <strong>preserved</strong> digest then
 tells you whether the image data and layout arrived intact and only the
 packet changed, and the <strong>metadata</strong> diff tells you what
 was written.</p>
+<h2 data-number="14.6" id="can-i-delete-this-copy"><span class="header-section-number">14.6</span> Can I delete this copy?</h2>
+<p>No identity alone answers this, because each one leaves something
+out. Equal <strong>SHA-256</strong> means the bytes are the same, so
+this copy is redundant only if the other copy is kept and checked. Equal
+<strong>raw blocks</strong> or <strong>image data</strong> mean the
+photograph is the same, but the wrapper, the previews, the XMP and the
+develop history may not be. Deleting on that evidence loses them.</p>
+<p>The safe answer is an archive that can rebuild every byte of the
+copy: <a href="https://firstpair.org/books/dng-compare/">DNG
+Compare</a>’s <code>dngc run</code>, fed by <a href="https://firstpair.org/books/phindex/">phindex</a> indexes, records
+each file as identical to its counterpart, as a verified delta against
+it, or as a full copy. <code>dngc verify --restore-sample N</code> then
+rebuilds a sample and checks it. Delete only after that passes, and keep
+the archive and the counterparts it refers to.</p>
 <h1 data-number="15" id="testing"><span class="header-section-number">15</span> Testing</h1>
 <p>The tests use only synthetic files, built in memory or written to a
 temporary directory.</p>

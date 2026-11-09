@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="dcterms.date" content="2026-11-09" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Metadata record</title>
   <style>
@@ -107,7 +107,13 @@ by <code>long-sha256:&lt;hex&gt;:&lt;length&gt;</code>, the SHA-256 and
 byte length of the original string. Compact records are for storage. The
 digest is always taken over the full record, never the compact one. In
 OCaml, set <code>compact_record = true</code> in the request; over the C
-ABI, pass <code>PHIDENTIFY_COMPACT_RECORD</code>.</li>
+ABI, pass <code>PHIDENTIFY_COMPACT_RECORD</code>. Why 1 KiB: the strings
+above that size are almost never the fields people search or compare,
+such as camera, lens, exposure, dates, ratings and keywords. They are
+payloads, such as embedded thumbnails, profile tables and maker-note
+blobs. They make up most of a record’s bytes. Kept as a hash and a
+length, they still show whether two files differ there; DNG Compare’s
+archives keep the bytes themselves.</li>
 <li><code>metadata::diff(left, right)</code> lists the top-level members
 whose values differ between two records, ignoring location members. Each
 difference is <code>(key, left value, right value)</code>, with

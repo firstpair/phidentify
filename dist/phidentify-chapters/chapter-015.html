@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-02" />
+  <meta name="dcterms.date" content="2026-11-09" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Which identity answers which question</title>
   <style>
@@ -135,5 +135,21 @@ arrival, SHA-256 will differ. The <strong>preserved</strong> digest then
 tells you whether the image data and layout arrived intact and only the
 packet changed, and the <strong>metadata</strong> diff tells you what
 was written.</p>
+<h2 data-number="14.6" id="can-i-delete-this-copy"><span
+class="header-section-number">14.6</span> Can I delete this copy?</h2>
+<p>No identity alone answers this, because each one leaves something
+out. Equal <strong>SHA-256</strong> means the bytes are the same, so
+this copy is redundant only if the other copy is kept and checked. Equal
+<strong>raw blocks</strong> or <strong>image data</strong> mean the
+photograph is the same, but the wrapper, the previews, the XMP and the
+develop history may not be. Deleting on that evidence loses them.</p>
+<p>The safe answer is an archive that can rebuild every byte of the
+copy: <a href="https://firstpair.org/books/dng-compare/">DNG
+Compare</a>’s <code>dngc run</code>, fed by <a
+href="https://firstpair.org/books/phindex/">phindex</a> indexes, records
+each file as identical to its counterpart, as a verified delta against
+it, or as a full copy. <code>dngc verify --restore-sample N</code> then
+rebuilds a sample and checks it. Delete only after that passes, and keep
+the archive and the counterparts it refers to.</p>
 </body>
 </html>
