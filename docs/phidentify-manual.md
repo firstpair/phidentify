@@ -576,6 +576,7 @@ Use it to group files by metadata, to detect metadata-only edits, and, with `dif
 The full record is available too: `metadata_json` in Rust, `metadata_record` in OCaml.
 
 - `metadata::compact(json)` replaces every string member longer than 1 KiB, such as base64 thumbnails and camera-profile tables, by `long-sha256:<hex>:<length>`, the SHA-256 and byte length of the original string. Compact records are for storage. The digest is always taken over the full record, never the compact one. In OCaml, set `compact_record = true` in the request; over the C ABI, pass `PHIDENTIFY_COMPACT_RECORD`.
+  Why 1 KiB: the strings above that size are almost never the fields people search or compare, such as camera, lens, exposure, dates, ratings and keywords. They are payloads, such as embedded thumbnails, profile tables and maker-note blobs. They make up most of a record's bytes. Kept as a hash and a length, they still show whether two files differ there; DNG Compare's archives keep the bytes themselves.
 - `metadata::diff(left, right)` lists the top-level members whose values differ between two records, ignoring location members. Each difference is `(key, left value, right value)`, with `None` on a side where the member is absent. Nested structures are compared as whole values.
 
 ## Reporting
@@ -726,6 +727,12 @@ SHA-256 cannot answer this question, because the catalog does not store one, and
 When files travel on a portable drive or across a network and come back, the question is about bytes, so the answer is **SHA-256**: record it before the copy, recompute it after, and compare. Nothing weaker will do, because a damaged byte inside a raw block is still damage even if the metadata looks the same.
 
 If an application on the other side wrote metadata into the files on arrival, SHA-256 will differ. The **preserved** digest then tells you whether the image data and layout arrived intact and only the packet changed, and the **metadata** diff tells you what was written.
+
+## Can I delete this copy?
+
+No identity alone answers this, because each one leaves something out. Equal **SHA-256** means the bytes are the same, so this copy is redundant only if the other copy is kept and checked. Equal **raw blocks** or **image data** mean the photograph is the same, but the wrapper, the previews, the XMP and the develop history may not be. Deleting on that evidence loses them.
+
+The safe answer is an archive that can rebuild every byte of the copy: [DNG Compare](https://firstpair.org/books/dng-compare/)'s `dngc run`, fed by [phindex](https://firstpair.org/books/phindex/) indexes, records each file as identical to its counterpart, as a verified delta against it, or as a full copy. `dngc verify --restore-sample N` then rebuilds a sample and checks it. Delete only after that passes, and keep the archive and the counterparts it refers to.
 
 # Testing
 
