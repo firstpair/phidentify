@@ -1,6 +1,6 @@
 opam-version: "2.0"
 name: "phidentify"
-version: "0.2.0"
+version: "0.3.0"
 synopsis: "Named photo-file identities (SHA-256, DNG raw blocks, Lightroom fingerprint, metadata, preserved digest, image data) for OCaml and OxCaml"
 description: """
 Binds the phidentify Rust library through its C ABI and runs a domain-parallel

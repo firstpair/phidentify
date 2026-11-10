@@ -11,6 +11,10 @@ local constraints.
   needs native oracles for that format first.
 - Keep the raw-block identity equal to dng-compare's `dng-subset` comparison.
   Changing what it covers means a new domain string, since stored digests change.
+- Keep the skeleton cuts (`skeleton.rs`) equal to dng-compare's archive
+  specification, section 13.1, and to its implementations: a skeleton made here
+  must be the one `dngc` makes. Changing what block marks cover means a new
+  domain string, and a new stamp in phindex.
 - Tests use synthetic fixtures only. Never commit photos, catalogs, personal
   paths, catalog or cloud identifiers, Adobe binaries or disassembly.
 - Build and test with `make test`, and the OCaml package in both switches:

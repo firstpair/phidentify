@@ -68,6 +68,31 @@ CAMLprim value phidentify_identify_stub(value path, value flags, value regions) 
   CAMLreturn(result);
 }
 
+/* skeleton path sha256: (status, payload) with three NUL-separated fields. */
+CAMLprim value phidentify_skeleton_stub(value path, value sha) {
+  CAMLparam2(path, sha);
+  CAMLlocal2(payload, result);
+  size_t path_len = caml_string_length(path), sha_len = caml_string_length(sha);
+  uint8_t *copy = malloc(path_len + sha_len + 1);
+  if (!copy) caml_raise_out_of_memory();
+  memcpy(copy, String_val(path), path_len);
+  memcpy(copy + path_len, String_val(sha), sha_len);
+  uint8_t *out = NULL; size_t len = 0;
+  caml_release_runtime_system();
+  int32_t code = phidentify_skeleton(copy, path_len, copy + path_len, sha_len, &out, &len);
+  caml_acquire_runtime_system();
+  free(copy);
+  if (code != 0) {
+    if (out) phidentify_free(out, len);
+    caml_failwith("phidentify skeleton failed");
+  }
+  payload = take_string(out, len);
+  result = caml_alloc_tuple(2);
+  Store_field(result, 0, Val_int(code));
+  Store_field(result, 1, payload);
+  CAMLreturn(result);
+}
+
 /* Read-only descriptor and positional reads for the tiffgraph walk, run with
  * the runtime lock released. */
 #include <fcntl.h>

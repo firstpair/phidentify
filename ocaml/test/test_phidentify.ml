@@ -17,8 +17,31 @@ let () =
      assert (i.metadata = Phidentify.Not_attempted);
      assert (match i.dng_semantic with Phidentify.Failed _ -> true | _ -> false);
      assert (i.preserved = Phidentify.Not_attempted);
-     assert (match i.image_data with Phidentify.Failed _ -> true | _ -> false)
+     assert (match i.image_data with Phidentify.Failed _ -> true | _ -> false);
+     (* A JPEG start: everything after SOI is one block, the scan. *)
+     assert (match i.block_marks with Phidentify.Ok _ -> true | _ -> false);
+     assert (i.skeleton = None)
    | Error e -> failwith e);
+  (* A JPEG with a 700-byte APP2 and a scan: two blocks. Its skeleton comes with
+     the read when asked for, and the same one from the structures alone. *)
+  let c = Filename.concat dir "c.jpg" in
+  let seg marker body =
+    let n = String.length body + 2 in
+    Printf.sprintf "\xff%c%c%c%s" marker (Char.chr (n lsr 8)) (Char.chr (n land 255)) body in
+  write c ("\xff\xd8" ^ seg '\xe1' "Exif\000\000caption" ^ seg '\xe2' (String.make 700 'p')
+           ^ "\xff\xda\000\008\001\001\000\000\063\000" ^ String.make 3000 's' ^ "\xff\xd9");
+  (match Phidentify.identify ~request:{ request with skeleton = true } c with
+   | Ok i ->
+     let marks = match i.block_marks with Phidentify.Ok m -> m | _ -> failwith "no block marks" in
+     assert (String.length marks = 64);
+     let stored = match i.skeleton with Some (Ok s) -> s | _ -> failwith "no skeleton" in
+     assert (String.starts_with ~prefix:(Printf.sprintf "{\"sha256\": %S, \"size\": " i.sha256) stored.record);
+     assert (String.sub stored.packed 0 4 = "\x28\xb5\x2f\xfd");
+     assert (Phidentify.skeleton ~sha256:i.sha256 c = (Phidentify.Ok marks, Some (Ok stored)))
+   | Error e -> failwith e);
+  (match Phidentify.skeleton ~sha256:"" (Filename.concat dir "missing") with
+   | Phidentify.Failed _, Some (Error _) -> ()
+   | _ -> failwith "skeleton of a missing file");
   (match Phidentify.identify (Filename.concat dir "missing") with
    | Error _ -> ()
    | Ok _ -> failwith "missing file identified");
@@ -28,5 +51,5 @@ let () =
   let sha_a = List.hd shas and sha_b = List.nth shas 1 in
   assert (sha_a <> sha_b);
   List.iteri (fun k s -> assert (s = if k mod 2 = 0 then sha_a else sha_b)) shas;
-  Sys.remove a; Sys.remove b; Sys.rmdir dir;
+  Sys.remove a; Sys.remove b; Sys.remove c; Sys.rmdir dir;
   Printf.printf "ok %s %s\n" (Phidentify.version ()) Phidentify.backend

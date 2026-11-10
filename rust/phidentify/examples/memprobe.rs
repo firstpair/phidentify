@@ -1,5 +1,5 @@
 //! Peak-memory probe: identify every path with one identity at a time.
-//! memprobe MODE PATH...   MODE: sha | blocks | lightroom | metadata | image | all
+//! memprobe MODE PATH...   MODE: sha | blocks | lightroom | metadata | image | marks | all
 use phidentify::{Options, identify};
 use std::path::Path;
 
@@ -13,6 +13,8 @@ fn main() {
         preserved_regions: None,
         dng_semantic: false,
         image_data: mode == "image" || mode == "all",
+        block_marks: mode == "marks" || mode == "all",
+        skeleton: false,
     };
     for arg in args {
         let _ = identify(Path::new(&arg), opts.clone());

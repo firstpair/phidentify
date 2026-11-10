@@ -18,9 +18,21 @@
     - [image_data]: the stored image bytes of a camera raw, TIFF or JPEG that
       is not a DNG (strips and tiles; RW2 raw data; RAF CFA; JPEG frame,
       tables and scans without APPn/COM). A metadata edit such as a
-      capture-time shift keeps it; re-encoding does not. *)
+      capture-time shift keeps it; re-encoding does not.
+    - [block_marks]: the file's large blocks by length and by a hash of each
+      block's first and last 4,096 bytes, wherever they sit: raw strips and
+      tiles, embedded previews, maker notes, profiles. A metadata edit keeps
+      it. A sampled identity: a strong hint, not proof of equal bytes.
+    - [skeleton]: not an identity. Every byte outside those blocks, packed,
+      and a record of where each block goes (dng-compare's skeleton record):
+      what rebuilds the file as it is now from a later, edited version. *)
 
 type outcome = Not_attempted | Ok of string | Failed of string
+
+type stored = { record : string; packed : string }
+(** A skeleton as it is stored: [record] is JSON ([sha256], [size], [format],
+    [blocks], [skeleton_bytes], [skeleton_sha256], [skeleton_format]); [packed]
+    is the skeleton's bytes as one zstd frame. *)
 
 type identity = {
   sha256 : string;
@@ -33,13 +45,21 @@ type identity = {
   (** exiftool-rs JSON, when requested; with [compact_record], string members
       over 1 KiB are replaced by [long-sha256:<hex>:<length>]. *)
   image_data : outcome;
+  block_marks : outcome;
+  skeleton : (stored, string) result option;
 }
 
 type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
-                 dng_semantic : bool; compact_record : bool; image_data : bool }
+                 dng_semantic : bool; compact_record : bool; image_data : bool;
+                 block_marks : bool; skeleton : bool }
 
 val all : request
-(** Every identity the linked library supports. *)
+(** Every identity the linked library supports; [skeleton] is off. *)
+
+val skeleton : sha256:string -> string -> outcome * (stored, string) result option
+(** [block_marks] and the skeleton of the file at this path, whose content has
+    this SHA-256, from the file's structures alone: no whole read. For adding
+    them to a file already identified. *)
 
 val image_data_candidate : string -> bool
 (** Whether a file starting with these bytes (its first [image_data_prefix_len],
@@ -51,6 +71,11 @@ val image_data_prefix_len : int
 val image_data_not_applicable : string
 val image_data_dng : string
 (** The reasons [image_data] gives for a non-candidate and for a DNG. *)
+
+val no_skeleton_walker : string
+(** The reason a file has neither [block_marks] nor a skeleton: no walker reads
+    its format and it is too large to keep whole. A smaller such file has a
+    skeleton, and this reason for [block_marks]. *)
 
 val reads_metadata : string -> bool
 (** Whether the metadata identity applies to this path: the engine reads files

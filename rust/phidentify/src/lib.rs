@@ -7,12 +7,14 @@
 //! | [`image_data`] image bytes of non-DNG raws, TIFFs, JPEGs | same stored image bytes, metadata aside | equal metadata, decoded pixels across re-encodes |
 //! | [`lightroom`] original fingerprint | Lightroom's original matcher would pair them | byte or pixel equality |
 //! | [`metadata`] record digest | equal exiftool-rs metadata, location excluded | equal image data |
+//! | [`skeleton::block_marks`] blocks by length and sampled ends | the same large blocks, wherever they sit (previews, maker notes and profiles included) | equal bytes inside a block's middle; equal metadata |
 //! | [`file::preserved_sha256`] over caller regions | every byte outside the regions equal, same size and layout | anything about the regions' contents |
 //!
 //! None of these substitutes for another; a missing or failed identity is not a match.
 pub mod dng_blocks;
 pub mod file;
 pub mod image_data;
+pub mod skeleton;
 #[cfg(feature = "lightroom")]
 pub mod lightroom;
 #[cfg(feature = "metadata")]
@@ -41,6 +43,10 @@ pub struct Options {
     pub dng_semantic: bool,
     /// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).
     pub image_data: bool,
+    /// The block-marks identity ([`skeleton::block_marks`]).
+    pub block_marks: bool,
+    /// Keep the file's skeleton ([`skeleton::build`]) in the result.
+    pub skeleton: bool,
 }
 
 /// An identity that was not attempted is `None`; one that failed or does not
@@ -58,6 +64,10 @@ pub struct Identity {
     /// `Ok(profile)` of the strictest tiffgraph grammar that accepts the file.
     pub dng_semantic_profile: Outcome,
     pub image_data_sha256: Outcome,
+    pub block_marks_sha256: Outcome,
+    /// When asked for: the skeleton, or why the file has none.
+    #[serde(skip)]
+    pub skeleton: Option<std::result::Result<skeleton::Skeleton, String>>,
     #[serde(skip)]
     pub metadata_json: Option<String>,
 }
@@ -124,7 +134,13 @@ pub fn identify(path: &Path, opts: Options) -> Result<Identity> {
         Some(b) => image_data::sha256(b).map_err(|e| e.to_string()),
         None => Err("file over the in-memory limit".to_string()),
     });
+    let built = (opts.block_marks || opts.skeleton).then(|| match bytes.as_deref() {
+        Some(b) => skeleton::build_bytes(b),
+        None => skeleton::build(path),
+    });
+    let block_marks_sha256 = opts.block_marks.then(|| built.as_ref().unwrap().as_ref().map_err(String::clone).and_then(skeleton::block_marks));
+    let skeleton = if opts.skeleton { built } else { None };
     ensure!(file::stamp(path)? == before, "file changed while being identified");
     Ok(Identity { stamp: before, sha256, dng_raw_blocks_sha256, lightroom_digest, metadata_digest, preserved_sha256,
-                  dng_semantic_profile, image_data_sha256, metadata_json })
+                  dng_semantic_profile, image_data_sha256, block_marks_sha256, skeleton, metadata_json })
 }

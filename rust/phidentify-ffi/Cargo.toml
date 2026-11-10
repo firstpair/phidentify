@@ -1,6 +1,6 @@
 [package]
 name = "phidentify-ffi"
-version = "0.2.0"
+version = "0.3.0"
 description = "C ABI over phidentify for the OCaml/OxCaml binding"
 license = "MIT"
 edition = "2024"

@@ -2,7 +2,7 @@
 //! NUL-separated fields, each `ok:<value>`, `err:<reason>` or empty when not
 //! attempted, in this order: sha256, dng raw blocks, lightroom digest,
 //! metadata digest, preserved (complement) digest, metadata record JSON, image
-//! data digest.
+//! data digest, block marks, skeleton record JSON, packed skeleton in hex.
 //! With `FLAG_COMPACT_RECORD` the record is [`phidentify::metadata::compact`]ed.
 use phidentify::{Options, Outcome, identify};
 
@@ -21,6 +21,8 @@ pub const FLAG_LIGHTROOM: u32 = 2;
 pub const FLAG_METADATA: u32 = 4;
 pub const FLAG_COMPACT_RECORD: u32 = 8;
 pub const FLAG_IMAGE_DATA: u32 = 16;
+pub const FLAG_BLOCK_MARKS: u32 = 32;
+pub const FLAG_SKELETON: u32 = 64;
 
 fn field(o: &Outcome) -> String {
     match o {
@@ -39,6 +41,8 @@ pub fn identify_fields(path: &Path, flags: u32, regions: Option<Vec<(u64, u64)>>
         preserved_regions: regions,
         dng_semantic: false,
         image_data: flags & FLAG_IMAGE_DATA != 0,
+        block_marks: flags & FLAG_BLOCK_MARKS != 0,
+        skeleton: flags & FLAG_SKELETON != 0,
     };
     let id = identify(path, opts).map_err(|e| format!("{e:#}"))?;
     let record = match &id.metadata_json {
@@ -47,7 +51,29 @@ pub fn identify_fields(path: &Path, flags: u32, regions: Option<Vec<(u64, u64)>>
         Some(j) => format!("ok:{}", j.replace('\0', " ")),
     };
     Ok([format!("ok:{}", id.sha256), field(&id.dng_raw_blocks_sha256), field(&id.lightroom_digest),
-        field(&id.metadata_digest), field(&id.preserved_sha256), record, field(&id.image_data_sha256)].join("\0"))
+        field(&id.metadata_digest), field(&id.preserved_sha256), record, field(&id.image_data_sha256),
+        field(&id.block_marks_sha256), stored(&id.skeleton, &id.sha256)].join("\0"))
+}
+
+/// The two skeleton fields: its record and its packed bytes in hex.
+fn stored(skeleton: &Option<Result<phidentify::skeleton::Skeleton, String>>, sha256: &str) -> String {
+    match skeleton {
+        None => "\0".to_string(),
+        Some(Err(e)) => { let e = format!("err:{}", e.replace('\0', " ")); format!("{e}\0{e}") }
+        Some(Ok(s)) => match s.pack() {
+            Ok(packed) => format!("ok:{}\0ok:{}", s.record(sha256), phidentify::file::hex(&packed)),
+            Err(e) => format!("err:{e}\0err:{e}"),
+        },
+    }
+}
+
+/// Block marks and the skeleton of `path`, whose content has this SHA-256,
+/// from the file's structures alone (no whole read): three fields, block
+/// marks, skeleton record, packed skeleton in hex.
+pub fn skeleton_fields(path: &Path, sha256: &str) -> String {
+    let built = phidentify::skeleton::build(path);
+    let marks = Some(built.as_ref().map_err(String::clone).and_then(phidentify::skeleton::block_marks));
+    [field(&marks), stored(&Some(built), sha256)].join("\0")
 }
 
 #[cfg(feature = "metadata")]
@@ -97,6 +123,27 @@ pub unsafe extern "C" fn phidentify_identify(path: *const u8, path_len: usize, f
     match panic::catch_unwind(|| identify_fields(path, flags, regions)) {
         Ok(Ok(s)) => { give(s, out, out_len); 0 }
         Ok(Err(e)) => { give(e, out, out_len); 1 }
+        Err(_) => { give("panic in phidentify".into(), out, out_len); 3 }
+    }
+}
+
+/// Status 0: `out` holds [`skeleton_fields`]. 2: invalid arguments. 3: panic.
+///
+/// # Safety
+/// `path` and `sha256` must point to their lengths of readable bytes;
+/// `out`/`out_len` must be writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn phidentify_skeleton(path: *const u8, path_len: usize, sha256: *const u8, sha256_len: usize,
+                                             out: *mut *mut u8, out_len: *mut usize) -> i32 {
+    if path.is_null() || sha256.is_null() || out.is_null() || out_len.is_null() {
+        return 2;
+    }
+    // SAFETY: guaranteed by the caller.
+    let (path, sha) = unsafe { (slice::from_raw_parts(path, path_len), slice::from_raw_parts(sha256, sha256_len)) };
+    let path = Path::new(std::ffi::OsStr::from_bytes(path));
+    let sha = String::from_utf8_lossy(sha).into_owned();
+    match panic::catch_unwind(|| skeleton_fields(path, &sha)) {
+        Ok(s) => { give(s, out, out_len); 0 }
         Err(_) => { give("panic in phidentify".into(), out, out_len); 3 }
     }
 }

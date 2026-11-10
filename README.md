@@ -11,6 +11,13 @@ and OxCaml binding.
 | `metadata` | equal exiftool-rs metadata records, with file location and dates left out | equal image data |
 | `preserved` (with `dng_semantic`) | every byte outside the DNG's primary XMP packet is equal, at the same size and layout | anything about the XMP packet |
 | `image_data` | same stored image bytes in a camera raw, TIFF or JPEG that is not a DNG | equal metadata; equal pixels after a re-encode |
+| `block_marks` | same large blocks (raw data, previews, maker notes, profiles), by length and by a hash of each block's two ends, wherever they sit | equal bytes in the middle of a block; equal metadata |
+
+phidentify also builds a file's **skeleton**: every byte outside those blocks,
+with a map of where each block goes. From a skeleton and a later version of
+the file that a metadata edit rewrote, `skeleton::rebuild` writes the file as
+it was, to be checked against its SHA-256. The cuts are those of dng-compare's
+archive format.
 
 One identity never stands in for another. An identity that was not attempted,
 failed, or does not apply to the file is reported as such, never as a match.

@@ -2,7 +2,7 @@
 
 This manual is by Alexy Khrabrov, with Claude as co-author. The ideas and decisions are Alexy's; Claude wrote the text and the code with him.
 
-It describes phidentify 0.2.0 as of 2026-11-02. phidentify is licensed under the MIT License; some optional builds link code under other licences, as the chapter on licences explains. Its source is at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
+It describes phidentify 0.3.0 as of 2026-11-10. phidentify is licensed under the MIT License; some optional builds link code under other licences, as the chapter on licences explains. Its source is at [github.com/firstpair/phidentify](https://github.com/firstpair/phidentify).
 
 Every example in this manual uses synthetic files or generic paths. Nothing here depends on a particular photo library.
 
@@ -20,6 +20,9 @@ phidentify computes several **named identities** for a photo file, each answerin
 | Metadata record | `metadata_digest` | `metadata` | equal exiftool-rs metadata records, file location left out |
 | Preserved (complement) digest | `preserved_sha256`, with `dng_semantic_profile` | `preserved`, with `dng_semantic` | every byte outside the primary XMP packet is equal, at the same size and layout |
 | Image data | `image_data_sha256` | `image_data` | the same stored image bytes, in a camera raw, TIFF or JPEG that is not a DNG |
+| Block marks | `block_marks_sha256` | `block_marks` | the same large blocks, by length and sampled ends, wherever they sit in the file |
+
+Beside the identities, phidentify can hand back a file's **skeleton**: every byte outside those large blocks, with a map of where each block goes. A skeleton is not an identity. It is what rebuilds the file as it is now from a later version that a metadata edit has rewritten. The chapter on block marks and skeletons covers both.
 
 Three rules hold for every identity, in every interface:
 
@@ -129,7 +132,7 @@ opam exec --switch default  -- dune build && opam exec --switch default  -- dune
 opam exec --switch 5.2.0+ox -- dune build && opam exec --switch 5.2.0+ox -- dune test --force
 ```
 
-The switch names are examples: use your own stock OCaml switch and your own OxCaml switch. Test in both if you change anything the pools touch. The test prints the version and the backend, for example `ok phidentify 0.2.0 +lightroom domains-stock` under stock OCaml and `ok phidentify 0.2.0 +lightroom domains-oxcaml` under OxCaml.
+The switch names are examples: use your own stock OCaml switch and your own OxCaml switch. Test in both if you change anything the pools touch. The test prints the version and the backend, for example `ok phidentify 0.3.0 +lightroom domains-stock` under stock OCaml and `ok phidentify 0.3.0 +lightroom domains-oxcaml` under OxCaml.
 
 To include the metadata identity in the OCaml package, build the FFI library with it: `cargo build --release -p phidentify-ffi --features metadata`. `Phidentify.version ()` then ends in `+metadata`.
 
@@ -175,6 +178,10 @@ pub struct Options {
     pub dng_semantic: bool,
     /// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).
     pub image_data: bool,
+    /// The block-marks identity.
+    pub block_marks: bool,
+    /// Keep the file's skeleton in the result.
+    pub skeleton: bool,
 }
 ```
 
@@ -190,6 +197,8 @@ pub struct Identity {
     pub preserved_sha256: Outcome,
     pub dng_semantic_profile: Outcome,   // Ok(profile) of the accepting grammar
     pub image_data_sha256: Outcome,
+    pub block_marks_sha256: Outcome,
+    pub skeleton: Option<Result<skeleton::Skeleton, String>>,   // not serialized
     pub metadata_json: Option<String>,   // not serialized
 }
 pub type Outcome = Option<Result<String, String>>;
@@ -239,12 +248,18 @@ type identity = {
   preserved : outcome;
   metadata_record : string option;
   image_data : outcome;
+  block_marks : outcome;
+  skeleton : (stored, string) result option;
 }
+and stored = { record : string; packed : string }
 
 type request = { dng_raw_blocks : bool; lightroom : bool; metadata : bool;
-                 dng_semantic : bool; compact_record : bool; image_data : bool }
+                 dng_semantic : bool; compact_record : bool; image_data : bool;
+                 block_marks : bool; skeleton : bool }
 
 val all : request
+val skeleton : sha256:string -> string -> outcome * (stored, string) result option
+val no_skeleton_walker : string
 val image_data_candidate : string -> bool
 val image_data_prefix_len : int
 val image_data_not_applicable : string
@@ -256,7 +271,7 @@ val identify : ?request:request -> string -> (identity, string) result
 val identify_all : ?request:request -> workers:int -> string list -> (identity, string) result list
 ```
 
-`all` requests every identity, `image_data` included, and leaves `compact_record` off. A request field that the linked library does not support, such as `metadata` without the `metadata` feature, comes back as `Failed "built without the metadata feature"`, not as `Not_attempted`.
+`all` requests every identity, `image_data` and `block_marks` included, and leaves `compact_record` and `skeleton` off. A request field that the linked library does not support, such as `metadata` without the `metadata` feature, comes back as `Failed "built without the metadata feature"`, not as `Not_attempted`.
 
 `dng_semantic = true` runs the tiffgraph walk and, when it succeeds, the preserved digest over its region. `dng_semantic` then holds the name of the grammar that accepted the file, and `preserved` the digest.
 
@@ -280,16 +295,16 @@ match Phidentify.identify "photo.dng" with
 The OCaml package installs `phidentify [-j N] FILE...`. It prints one tab-separated line per file, in argument order:
 
 ```text
-path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved
+path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved  image_data  block_marks
 ```
 
-Each identity column is the value, `-` when not attempted, or `!reason` when it failed. The command never requests the metadata identity, so that column is always `-`. It does not print the image-data identity; use the library, or the Rust `identify` example, for that. A file that cannot be identified at all gets a two-column line, `path`, then `!reason`. `-j N` sets the number of workers; the default is `recommended_workers ()`.
+Each identity column is the value, `-` when not attempted, or `!reason` when it failed. The command never requests the metadata identity, so that column is always `-`. A file that cannot be identified at all gets a two-column line, `path`, then `!reason`. `-j N` sets the number of workers; the default is `recommended_workers ()`.
 
 On the same synthetic text file and TIFF:
 
 ```text
-notes.txt  c5e496e7…  -                          -  -  !not TIFF            -
-tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -
+notes.txt  c5e496e7…  -                          -  -  !not TIFF            -  !not a TIFF-family file or JPEG  !no skeleton walker for this format
+tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -  !no image data in TIFF           !no blocks
 ```
 
 ## The C ABI
@@ -300,8 +315,13 @@ tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -
 #define PHIDENTIFY_METADATA 4u
 #define PHIDENTIFY_COMPACT_RECORD 8u
 #define PHIDENTIFY_IMAGE_DATA 16u
+#define PHIDENTIFY_BLOCK_MARKS 32u
+#define PHIDENTIFY_SKELETON 64u
 int32_t phidentify_identify(const uint8_t *path, size_t path_len, uint32_t flags,
                             const uint64_t *regions, size_t n_regions,
+                            uint8_t **out, size_t *out_len);
+int32_t phidentify_skeleton(const uint8_t *path, size_t path_len,
+                            const uint8_t *sha256, size_t sha256_len,
                             uint8_t **out, size_t *out_len);
 int32_t phidentify_version(uint8_t **out, size_t *out_len);
 void phidentify_free(uint8_t *ptr, size_t len);
@@ -318,9 +338,11 @@ void phidentify_free(uint8_t *ptr, size_t len);
 | 2 | nothing; an argument was invalid |
 | 3 | a message; the Rust core panicked, and the panic was caught |
 
-With status 0, `out` holds seven fields separated by NUL bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata digest, preserved digest, metadata record JSON, image data. The image-data field is filled only when `PHIDENTIFY_IMAGE_DATA` (16) is set in `flags`; it was added as the seventh field so that the first six keep their places. Each field is `ok:<value>`, `err:<reason>`, or empty when not attempted. Free every `out` buffer exactly once with `phidentify_free(out, out_len)`.
+With status 0, `out` holds ten fields separated by NUL bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata digest, preserved digest, metadata record JSON, image data, block marks, skeleton record JSON, packed skeleton in hex. The image-data field is filled only when `PHIDENTIFY_IMAGE_DATA` (16) is set in `flags`, block marks only with `PHIDENTIFY_BLOCK_MARKS` (32), and the two skeleton fields only with `PHIDENTIFY_SKELETON` (64). New fields are added at the end, so that earlier ones keep their places; a caller built against seven fields must be rebuilt. Each field is `ok:<value>`, `err:<reason>`, or empty when not attempted. Free every `out` buffer exactly once with `phidentify_free(out, out_len)`.
 
-`phidentify_version` returns a string such as `phidentify 0.2.0 +lightroom +metadata`, naming the features the library was built with.
+`phidentify_skeleton` returns the last three of those fields (block marks, skeleton record, packed skeleton) for a file whose content has the given SHA-256. It reads the file's structures only, never the whole file, and is for adding block marks and a skeleton to a file that was identified earlier.
+
+`phidentify_version` returns a string such as `phidentify 0.3.0 +lightroom +metadata`, naming the features the library was built with.
 
 # The identities
 
@@ -488,6 +510,73 @@ Typical malformed-file reasons are `unsupported TIFF header`, `image data withou
 ## Cost
 
 Cheap. The walk reads only the directories and the offset and count tags, and the hash reads the image bytes once, from the bytes already in memory. There is no decoding. For a raw file the cost is close to one SHA-256 pass over the file.
+
+# Block marks and skeletons
+
+## Blocks
+
+A photo file is a small amount of structure wrapped around a few large blocks. In a DNG the structure is the TIFF header, the image file directories with their tags, and the XMP packet; the blocks are the raw image's strips or tiles, the embedded previews, the maker notes and the camera profiles. When an editor writes a rating, a caption or develop settings into the file, it rewrites the structure and carries the blocks over unchanged, often to other offsets because the XMP packet grew.
+
+phidentify cuts a file into **blocks** and the **skeleton**, which is every byte outside the blocks, in file order. The cutting rules are those of [dng-compare](https://firstpair.org/books/dng-compare/)'s archive format (its specification, section 13.1), so a skeleton made here is the one `dngc` makes. In short:
+
+- **Classic TIFF** (DNG and the TIFF-based raws). The blocks are the strips or tiles of each image, merged when they lie within 3 bytes of each other; each embedded JPEG stream; any other out-of-line tag value of 512 bytes or more, except XMP (700), IPTC (33723) and Photoshop resources (34377), which editors rewrite; and any run of 64 KiB or more that no tag points at.
+- **JPEG.** The blocks are each segment of 512 bytes or more other than APP1 (Exif, XMP), APP13 (IPTC) and COM, and everything from the start of scan to the end of the file.
+- **Anything else** up to 1 MiB, such as an XMP sidecar, is its own skeleton, with no blocks. A larger file of another format has no skeleton.
+
+Each block has a **mark**: the first 32 hex digits of the SHA-256 of its first and last 4,096 bytes, or of the whole block when it is no longer than 8,192 bytes.
+
+## The block-marks identity
+
+```text
+SHA-256( "PHIDENTIFY-BLOCK-MARKS-1\0"
+       ‖ format ("tiff" or "jpeg") ‖ 0x00
+       ‖ u64le(number of blocks)
+       ‖ for each block, sorted by length and then mark:
+           u64le(length) ‖ mark (32 ASCII hex digits) )
+```
+
+Offsets and roles are left out, so blocks that an edit moved keep the digest.
+
+**What equality proves.** The two files hold blocks of the same lengths whose first and last 4,096 bytes are equal. In practice that means the same photograph with the same previews, maker notes and profiles, whatever was done to its metadata.
+
+**What it does not prove.**
+
+- **Not byte equality inside a block.** A mark samples a block's two ends. A change in the middle of a long block, such as an edited pixel in an uncompressed strip, keeps the digest. This identity is a strong hint; proof is a rebuild checked by SHA-256, below.
+- **Not metadata equality.** Everything an editor rewrites is outside the blocks.
+- **It is stricter than raw blocks or image data.** A regenerated embedded preview changes it, where the raw-block identity of a DNG does not.
+
+**When to use it.** To find the edited version of a file: the same picture after Lightroom or Photo Mechanic wrote into it, at any path. It applies to DNGs and to other TIFF-based raws and JPEGs alike, and it covers the previews and maker notes that the raw-block and image-data identities leave out.
+
+**Reporting.** A file stored whole or of a format without a walker fails with `no skeleton walker for this format`. A TIFF or JPEG with no block of 512 bytes or more fails with `no blocks`.
+
+**Measured.** On 249 real files, each compared before and after years of edits in Lightroom Classic and Photo Mechanic (120 DNGs, 78 JPEGs, and 51 DNGs chosen because their byte differences were large), the block marks were equal in all 249.
+
+## Skeletons
+
+A skeleton is the file's format, its size, its blocks (`at`, `len`, `mark`, `role` each) and the bytes outside them. Building one reads the file's structures, those bytes, and each block's two ends; it never reads a whole block, so it costs a handful of small reads however large the file is.
+
+```rust
+use phidentify::skeleton;
+let old = skeleton::build(path)?;                 // or build_bytes(&bytes)
+// ... the file is edited: a rating, an exposure adjustment ...
+let mut out = std::fs::File::create("as-it-was.dng")?;
+let sha = skeleton::rebuild(&old, path, &mut out)?;
+assert_eq!(sha, sha256_before_the_edit);
+```
+
+`rebuild` walks the edited file, finds each of the old file's blocks in it by length and mark, and writes the old file in order: skeleton bytes, a block, more skeleton bytes. It returns the SHA-256 of what it wrote. **The caller must compare that with the old content's SHA-256**, because a mark covers only a block's ends. When a block is missing from the edited file, `rebuild` fails and says which.
+
+A skeleton is stored as two values:
+
+- `Skeleton::pack()` gives its bytes as one zstd frame (level 19).
+- `Skeleton::record(sha256)` gives a JSON record for the content with that SHA-256, written as Python's `json.dumps` writes it, with the members of dng-compare's skeleton record that do not depend on where the file is: `sha256`, `size`, `format`, `blocks`, `skeleton_bytes`, `skeleton_sha256`, `skeleton_format`.
+- `Skeleton::from_record(record, packed)` gives the skeleton back, after checking the bytes against the record.
+
+`identify` returns the skeleton when `Options::skeleton` is set, built from the same read as the identities. From OCaml, `request.skeleton` does the same and `identity.skeleton` holds the record and the packed bytes; `Phidentify.skeleton ~sha256 path` builds them from the file's structures alone.
+
+On real files a packed skeleton is about 5 KB for a DNG and about 10 KB for a JPEG, whose Exif segment with its thumbnail is kept whole.
+
+**What a skeleton cannot do.** It cannot bring back a block the edit destroyed: a regenerated preview, re-encoded image data, a truncated file. For that the old bytes must be kept from a copy that still has them.
 
 # Lightroom Classic original fingerprint
 
@@ -684,15 +773,15 @@ A tiffgraph walk, which reads only directories and selected values and is bounde
 
 # The identities side by side
 
-| | SHA-256 | DNG raw blocks | Image data | Lightroom fingerprint | Metadata record | Preserved |
-| --- | --- | --- | --- | --- | --- | --- |
-| Input | every byte | encoding tags, block counts and bytes of each primary raw image | strips and tiles of every directory, RW2 raw span, RAF CFA, or JPEG frame, tables and scans | decoded samples, camera model, crops, opcode lists | exiftool-rs record without location members, with engine stamp | every byte outside the primary XMP packet, with size and layout |
-| Equality proves | identical files | same encoded raw data | same stored image bytes | Classic would pair the files | same exposed metadata, same engine | only the XMP packet can differ |
-| Does not prove | — | metadata, interpretation tags, decoded or rendered equality | metadata, decoded or rendered equality | byte or pixel equality | anything about image data or unexposed bytes | anything about the XMP packet |
-| Applies to | every regular file | DNG, ≤ 1 GiB | TIFF-family raws, TIFFs, RAF and JPEGs that are not DNGs, ≤ 1 GiB | supported DNG strata | any file the engine reads | DNG accepted by a tiffgraph grammar, ≤ 1 GiB |
-| Hash | SHA-256 | SHA-256 | SHA-256 | MD5 (Lightroom's) | SHA-256 | SHA-256 |
-| Cost | one read | parse + raw bytes | parse + image bytes | full raw decode | metadata parse | walk + one pass |
-| Feature | always | always | always | `lightroom` (default) | `metadata` (GPL) | always; the Rust walk needs `semantic` (default) |
+| | SHA-256 | DNG raw blocks | Image data | Lightroom fingerprint | Metadata record | Preserved | Block marks |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Input | every byte | encoding tags, block counts and bytes of each primary raw image | strips and tiles of every directory, RW2 raw span, RAF CFA, or JPEG frame, tables and scans | decoded samples, camera model, crops, opcode lists | exiftool-rs record without location members, with engine stamp | every byte outside the primary XMP packet, with size and layout | length and two-end mark of every large block |
+| Equality proves | identical files | same encoded raw data | same stored image bytes | Classic would pair the files | same exposed metadata, same engine | only the XMP packet can differ | same blocks, wherever they sit |
+| Does not prove | — | metadata, interpretation tags, decoded or rendered equality | metadata, decoded or rendered equality | byte or pixel equality | anything about image data or unexposed bytes | anything about the XMP packet | bytes in a block's middle; metadata |
+| Applies to | every regular file | DNG, ≤ 1 GiB | TIFF-family raws, TIFFs, RAF and JPEGs that are not DNGs, ≤ 1 GiB | supported DNG strata | any file the engine reads | DNG accepted by a tiffgraph grammar, ≤ 1 GiB | classic TIFF family and JPEG with a block of 512 bytes or more |
+| Hash | SHA-256 | SHA-256 | SHA-256 | MD5 (Lightroom's) | SHA-256 | SHA-256 | SHA-256 over sampled SHA-256 marks |
+| Cost | one read | parse + raw bytes | parse + image bytes | full raw decode | metadata parse | walk + one pass | walk + two ends per block |
+| Feature | always | always | always | `lightroom` (default) | `metadata` (GPL) | always; the Rust walk needs `semantic` (default) | always |
 
 # Which identity answers which question
 
@@ -712,6 +801,14 @@ Compare the two versions:
 - The **metadata** digests then differ, and `metadata::diff` names the fields: a rating, a keyword, a develop setting.
 - **preserved** differs but **raw blocks** are equal: the raw data is the same, but something besides the packet changed. Look at the layout, the previews and the private fields before calling it metadata-only.
 - **raw blocks** differ: the encoded raw data changed. It may be a re-encode of the same samples, which dng-compare can decide by decoding, or a different photograph.
+
+## Where is this file after an editor wrote into it?
+
+Compare **block marks**. An editor that writes ratings, captions or develop settings into a file keeps its large blocks, so the edited file has the same block marks at any path and under any name. This works for DNGs, other TIFF-based raws and JPEGs alike. It is a sampled identity, so treat a match as a strong hint.
+
+## Can I get the file back as it was before the edit?
+
+Yes, if its **skeleton** was kept before the edit: `skeleton::rebuild` writes the old file from the skeleton and the edited file, and the result is checked against the old SHA-256. [phindex](https://firstpair.org/books/phindex/) keeps a skeleton for every file it indexes and `phindex restore` does the rebuild; [DNG Compare](https://firstpair.org/books/dng-compare/)'s archives use the same skeletons for the files they refer to. It does not work when the edit replaced a block, such as a regenerated preview.
 
 ## Is this the same shot after a capture-time shift?
 
@@ -740,7 +837,8 @@ The safe answer is an archive that can rebuild every byte of the copy: [DNG Comp
 The tests use only synthetic files, built in memory or written to a temporary directory.
 
 - The Rust tests (31 unit tests and 6 integration tests, with the `metadata` feature) cover the raw-block identity ignoring XMP and placement but following every raw byte; a non-DNG TIFF and a truncated raw block reported as errors, not matches; each identity reported separately by `identify`; the preserved digest reproducing Unison's formula byte by byte and ignoring region contents; image data ignoring a rewritten, longer metadata packet and moved data in a TIFF-based raw, APP segments, comments and trailing data in a JPEG, and metadata before the raw data of an RW2 and a RAF, but following every image byte, and refusing a DNG, a JPEG cut before EOI and a non-image file; and, for the Lightroom fingerprint, crop and opcode parsing, the opcode fingerprint stream, the tiled digest and the refusal of unsupported strata.
-- The OCaml test, run in both switches, checks a non-DNG file (raw blocks and Lightroom not attempted, `dng_semantic` and `image_data` failed, `preserved` not attempted), a missing file reported as an error, and the pool returning forty results in input order with four workers.
+- The skeleton tests (7, in `tests/skeleton.rs`) build a small TIFF with an XMP packet, a strip and a large private tag, a JPEG and a sidecar. They check that a file is rebuilt byte for byte from its skeleton and an edited version whose longer packet moved the blocks, in both directions, and that the two have the same block marks; that a changed block gives other block marks and a rebuild that fails naming the block; that a change in the middle of a long block keeps the marks and is caught by the whole-file SHA-256; that a sidecar is its own skeleton and a larger file of an unknown format has none; that a record and its packed bytes give the skeleton back, and wrong bytes or blocks out of order are refused; and that a file on disk and the same bytes in memory are cut alike. The cuts were also compared with dng-compare's Python implementation on its 167 synthetic corpus files that have a skeleton, with no difference.
+- The OCaml test, run in both switches, checks a non-DNG file (raw blocks and Lightroom not attempted, `dng_semantic` and `image_data` failed, `preserved` not attempted), a missing file reported as an error, a JPEG's block marks, its skeleton from the read and the same skeleton from its structures alone, and the pool returning forty results in input order with four workers.
 
 ```sh
 make test
@@ -765,7 +863,7 @@ A build without `lightroom` and `metadata` links only MIT and permissively licen
 
 | Item | Value |
 | --- | --- |
-| Version | 0.2.0 |
+| Version | 0.3.0 |
 | Rust | 1.99.0, edition 2024, `unsafe` forbidden in the core |
 | OCaml | 5.1 or later, stock OCaml (`Domain.spawn`) or OxCaml (`Domain.Safe.spawn`) |
 | In-memory limit | 1 GiB; larger files get SHA-256, the DNG semantic walk from disk and the metadata record |

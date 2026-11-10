@@ -99,7 +99,7 @@ fn identify_reports_each_identity_separately() {
     std::fs::write(&a, dng(&raw, b"<x:xmpmeta>1</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&b, dng(&raw, b"<x:xmpmeta>22</x:xmpmeta>", 0)).unwrap();
     std::fs::write(&j, b"\xff\xd8\xff\xe0 synthetic").unwrap();
-    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None, dng_semantic: false, image_data: true };
+    let opts = Options { dng_blocks: true, lightroom: false, metadata: false, preserved_regions: None, dng_semantic: false, image_data: true, block_marks: false, skeleton: false };
     let (ia, ib, ij) = (identify(&a, opts.clone()).unwrap(), identify(&b, opts.clone()).unwrap(), identify(&j, opts).unwrap());
     assert_ne!(ia.sha256, ib.sha256);
     assert_eq!(ia.dng_raw_blocks_sha256, ib.dng_raw_blocks_sha256);
@@ -232,7 +232,7 @@ fn metadata_only_for_extensions_the_engine_reads() {
     std::fs::write(&d, &bytes).unwrap();
     std::fs::write(&c, &bytes).unwrap();
     std::fs::write(&i, b"[x]\ny=1\n").unwrap();
-    let opts = Options { dng_blocks: false, lightroom: false, metadata: true, preserved_regions: None, dng_semantic: false, image_data: false };
+    let opts = Options { dng_blocks: false, lightroom: false, metadata: true, preserved_regions: None, dng_semantic: false, image_data: false, block_marks: false, skeleton: false };
     let id = |p: &PathBuf| identify(p, opts.clone()).unwrap();
     assert!(id(&d).metadata_digest.is_some(), "a .DNG is attempted");
     for p in [&c, &i] {
