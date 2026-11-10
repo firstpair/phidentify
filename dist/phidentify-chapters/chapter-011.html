@@ -5,9 +5,9 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-09" />
+  <meta name="dcterms.date" content="2026-11-10" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
-  <title>Lightroom Classic original fingerprint</title>
+  <title>Block marks and skeletons</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -32,6 +32,71 @@
       margin: 0 0.8em 0.2em -1.6em;
       vertical-align: middle;
     }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <link rel="stylesheet" href="book.css" />
 </head>
@@ -47,107 +112,131 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">Metadata record</a>
+<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">Lightroom Classic original fingerprint</a>
 </span>
 <span class="navlink">
 <span class="navlink-label">Previous:</span> <a href="chapter-010.html" accesskey="p" rel="previous">Image data</a>
 </span>
 </div>
 </nav>
-<h1 data-number="10" id="lightroom-classic-original-fingerprint"><span
-class="header-section-number">10</span> Lightroom Classic original
-fingerprint</h1>
-<h2 data-number="10.1" id="what-it-is"><span
-class="header-section-number">10.1</span> What it is</h2>
-<p>Lightroom Classic stores a fingerprint of each original file in its
-catalog, in the <code>digest</code> column of the
-<code>AgLibraryFileDigest</code> table. phidentify computes that value
-for the DNGs it supports, so that a file can be checked against the
-catalog without Lightroom.</p>
-<p>It is an <strong>independent reimplementation</strong>. It contains
-no Adobe code, and it was qualified only by comparing its output with
-values Lightroom Classic itself had stored.</p>
-<h2 data-number="10.2" id="what-goes-in-3"><span
-class="header-section-number">10.2</span> What goes in</h2>
-<p>At the level the source shows, the fingerprint has two layers:</p>
-<ol type="1">
-<li><strong>A raw-image digest.</strong> The raw samples are decoded
-with rawler, before linearization, without camera crop or any rendering.
-The digest is Adobe’s NewRawImageDigest, the raw-image digest the DNG
-specification defines, recomputed here from the decoded samples: the
-samples are cut into tiles, each tile is hashed with MD5, and the tile
-digests are hashed again with MD5.</li>
-<li><strong>A wrapper.</strong> That raw digest is wrapped, again with
-MD5, together with streams that describe how the image is framed: the
-camera model, the default crop size and origin, the user crop when there
-is one, and a fingerprint stream of the raw image’s opcode lists.</li>
-</ol>
-<p>The result is 32 upper-case hex digits, as Classic stores it.</p>
-<p>The Rust module also exposes <code>lightroom::compute(path)</code>,
-which returns the intermediate values: the raw-image digest, a SHA-256
-of the wrapper inputs, and the engine revision name,
-<code>native-original-digest-v5</code>. Those are for diagnosis; the
-identity is the final digest.</p>
-<h2 data-number="10.3" id="supported-strata"><span
-class="header-section-number">10.3</span> Supported strata</h2>
-<p>The fingerprint is computed only for DNGs that are:</p>
+<h1 data-number="10" id="block-marks-and-skeletons"><span
+class="header-section-number">10</span> Block marks and skeletons</h1>
+<h2 data-number="10.1" id="blocks"><span
+class="header-section-number">10.1</span> Blocks</h2>
+<p>A photo file is a small amount of structure wrapped around a few
+large blocks. In a DNG the structure is the TIFF header, the image file
+directories with their tags, and the XMP packet; the blocks are the raw
+image’s strips or tiles, the embedded previews, the maker notes and the
+camera profiles. When an editor writes a rating, a caption or develop
+settings into the file, it rewrites the structure and carries the blocks
+over unchanged, often to other offsets because the XMP packet grew.</p>
+<p>phidentify cuts a file into <strong>blocks</strong> and the
+<strong>skeleton</strong>, which is every byte outside the blocks, in
+file order. The cutting rules are those of <a
+href="https://firstpair.org/books/dng-compare/">dng-compare</a>’s
+archive format (its specification, section 13.1), so a skeleton made
+here is the one <code>dngc</code> makes. In short:</p>
 <ul>
-<li>integer-sampled,</li>
-<li>single-plane CFA or LinearRaw,</li>
-<li>stored uncompressed or with lossless JPEG compression, in classic
-TIFF rather than BigTIFF,</li>
-<li>with raw-image opcodes limited to the two implemented,
-FixVignetteRadial and FixBadPixelsConstant.</li>
+<li><strong>Classic TIFF</strong> (DNG and the TIFF-based raws). The
+blocks are the strips or tiles of each image, merged when they lie
+within 3 bytes of each other; each embedded JPEG stream; any other
+out-of-line tag value of 512 bytes or more, except XMP (700), IPTC
+(33723) and Photoshop resources (34377), which editors rewrite; and any
+run of 64 KiB or more that no tag points at.</li>
+<li><strong>JPEG.</strong> The blocks are each segment of 512 bytes or
+more other than APP1 (Exif, XMP), APP13 (IPTC) and COM, and everything
+from the start of scan to the end of the file.</li>
+<li><strong>Anything else</strong> up to 1 MiB, such as an XMP sidecar,
+is its own skeleton, with no blocks. A larger file of another format has
+no skeleton.</li>
 </ul>
-<p>Every other file is an error with a reason, never a guessed value.
-JPEG files, camera-native raw files and DNG strata outside that list are
-not implemented.</p>
-<h2 data-number="10.4" id="qualification"><span
-class="header-section-number">10.4</span> Qualification</h2>
-<p>On 2026-11-01, 60 randomly chosen DNGs from a Lightroom Classic 15
-catalog were fingerprinted. All 60 matched the fingerprints Lightroom
-Classic had stored for them.</p>
-<p>That is the whole evidence for this identity. It covers the strata
-above, as Lightroom Classic 15 computed them. Extending the fingerprint
-to another format needs native values from Lightroom for that format
-first.</p>
-<h2 data-number="10.5" id="what-equality-proves-3"><span
-class="header-section-number">10.5</span> What equality proves</h2>
-<p>An equal digest means Lightroom Classic’s original matcher would pair
-the two files, or would accept the file as the original a catalog entry
-recorded. Compare it together with the file size, which Classic stores
-beside it.</p>
-<h2 data-number="10.6" id="what-it-does-not-prove-3"><span
-class="header-section-number">10.6</span> What it does not prove</h2>
-<p>It is native-matcher correspondence, not byte equality and not pixel
-equality. Two files with equal fingerprints can differ in metadata,
-previews and layout. MD5 is used because that is what Lightroom uses;
-the value is a compatibility identity, not a cryptographic one, and
-should not be relied on against deliberately crafted files.</p>
-<h2 data-number="10.7" id="when-to-use-it-3"><span
-class="header-section-number">10.7</span> When to use it</h2>
-<p>Use it to check a file against a Lightroom Classic catalog: is this
-the original the catalog thinks it is, which file on disk does this
-catalog entry correspond to, did a restore bring back the file Classic
-expects. Read the catalog’s stored values from a copy, never from a
-catalog Classic has open, and never write them.</p>
-<h2 data-number="10.8" id="reporting-3"><span
-class="header-section-number">10.8</span> Reporting</h2>
-<p>The fingerprint is attempted only when it is requested and the file
-parsed as a DNG with a primary raw image, the same gate as the raw-block
-identity. Otherwise it is not attempted (<code>None</code>,
-<code>Not_attempted</code>, <code>-</code>).</p>
-<p>When attempted, it fails with a reason for any unsupported stratum,
-malformed metadata, a decoder error, decoded dimensions that disagree
-with the raw directory, or a change to the file while it is read. A
-library built without the <code>lightroom</code> feature reports
-<code>built without the lightroom feature</code> as a failure for every
-DNG.</p>
-<h2 data-number="10.9" id="cost-3"><span
-class="header-section-number">10.9</span> Cost</h2>
-<p>The most expensive identity by far. It reads the file again from its
-path and fully decodes the raw image, so it costs CPU in proportion to
-the sensor size and holds the decoded samples in memory, two bytes per
-sample. Request it only when the question is about Lightroom.</p>
+<p>Each block has a <strong>mark</strong>: the first 32 hex digits of
+the SHA-256 of its first and last 4,096 bytes, or of the whole block
+when it is no longer than 8,192 bytes.</p>
+<h2 data-number="10.2" id="the-block-marks-identity"><span
+class="header-section-number">10.2</span> The block-marks identity</h2>
+<pre class="text"><code>SHA-256( &quot;PHIDENTIFY-BLOCK-MARKS-1\0&quot;
+       ‖ format (&quot;tiff&quot; or &quot;jpeg&quot;) ‖ 0x00
+       ‖ u64le(number of blocks)
+       ‖ for each block, sorted by length and then mark:
+           u64le(length) ‖ mark (32 ASCII hex digits) )</code></pre>
+<p>Offsets and roles are left out, so blocks that an edit moved keep the
+digest.</p>
+<p><strong>What equality proves.</strong> The two files hold blocks of
+the same lengths whose first and last 4,096 bytes are equal. In practice
+that means the same photograph with the same previews, maker notes and
+profiles, whatever was done to its metadata.</p>
+<p><strong>What it does not prove.</strong></p>
+<ul>
+<li><strong>Not byte equality inside a block.</strong> A mark samples a
+block’s two ends. A change in the middle of a long block, such as an
+edited pixel in an uncompressed strip, keeps the digest. This identity
+is a strong hint; proof is a rebuild checked by SHA-256, below.</li>
+<li><strong>Not metadata equality.</strong> Everything an editor
+rewrites is outside the blocks.</li>
+<li><strong>It is stricter than raw blocks or image data.</strong> A
+regenerated embedded preview changes it, where the raw-block identity of
+a DNG does not.</li>
+</ul>
+<p><strong>When to use it.</strong> To find the edited version of a
+file: the same picture after Lightroom or Photo Mechanic wrote into it,
+at any path. It applies to DNGs and to other TIFF-based raws and JPEGs
+alike, and it covers the previews and maker notes that the raw-block and
+image-data identities leave out.</p>
+<p><strong>Reporting.</strong> A file stored whole or of a format
+without a walker fails with
+<code>no skeleton walker for this format</code>. A TIFF or JPEG with no
+block of 512 bytes or more fails with <code>no blocks</code>.</p>
+<p><strong>Measured.</strong> On 249 real files, each compared before
+and after years of edits in Lightroom Classic and Photo Mechanic (120
+DNGs, 78 JPEGs, and 51 DNGs chosen because their byte differences were
+large), the block marks were equal in all 249.</p>
+<h2 data-number="10.3" id="skeletons"><span
+class="header-section-number">10.3</span> Skeletons</h2>
+<p>A skeleton is the file’s format, its size, its blocks
+(<code>at</code>, <code>len</code>, <code>mark</code>, <code>role</code>
+each) and the bytes outside them. Building one reads the file’s
+structures, those bytes, and each block’s two ends; it never reads a
+whole block, so it costs a handful of small reads however large the file
+is.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">phidentify::</span>skeleton<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> old <span class="op">=</span> <span class="pp">skeleton::</span>build(path)<span class="op">?;</span>                 <span class="co">// or build_bytes(&amp;bytes)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// ... the file is edited: a rating, an exposure adjustment ...</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> <span class="kw">mut</span> out <span class="op">=</span> <span class="pp">std::fs::File::</span>create(<span class="st">&quot;as-it-was.dng&quot;</span>)<span class="op">?;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> sha <span class="op">=</span> <span class="pp">skeleton::</span>rebuild(<span class="op">&amp;</span>old<span class="op">,</span> path<span class="op">,</span> <span class="op">&amp;</span><span class="kw">mut</span> out)<span class="op">?;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="pp">assert_eq!</span>(sha<span class="op">,</span> sha256_before_the_edit)<span class="op">;</span></span></code></pre></div>
+<p><code>rebuild</code> walks the edited file, finds each of the old
+file’s blocks in it by length and mark, and writes the old file in
+order: skeleton bytes, a block, more skeleton bytes. It returns the
+SHA-256 of what it wrote. <strong>The caller must compare that with the
+old content’s SHA-256</strong>, because a mark covers only a block’s
+ends. When a block is missing from the edited file, <code>rebuild</code>
+fails and says which.</p>
+<p>A skeleton is stored as two values:</p>
+<ul>
+<li><code>Skeleton::pack()</code> gives its bytes as one zstd frame
+(level 19).</li>
+<li><code>Skeleton::record(sha256)</code> gives a JSON record for the
+content with that SHA-256, written as Python’s <code>json.dumps</code>
+writes it, with the members of dng-compare’s skeleton record that do not
+depend on where the file is: <code>sha256</code>, <code>size</code>,
+<code>format</code>, <code>blocks</code>, <code>skeleton_bytes</code>,
+<code>skeleton_sha256</code>, <code>skeleton_format</code>.</li>
+<li><code>Skeleton::from_record(record, packed)</code> gives the
+skeleton back, after checking the bytes against the record.</li>
+</ul>
+<p><code>identify</code> returns the skeleton when
+<code>Options::skeleton</code> is set, built from the same read as the
+identities. From OCaml, <code>request.skeleton</code> does the same and
+<code>identity.skeleton</code> holds the record and the packed bytes;
+<code>Phidentify.skeleton ~sha256 path</code> builds them from the
+file’s structures alone.</p>
+<p>On real files a packed skeleton is about 5 KB for a DNG and about 10
+KB for a JPEG, whose Exif segment with its thumbnail is kept whole.</p>
+<p><strong>What a skeleton cannot do.</strong> It cannot bring back a
+block the edit destroyed: a regenerated preview, re-encoded image data,
+a truncated file. For that the old bytes must be kept from a copy that
+still has them.</p>
 </body>
 </html>

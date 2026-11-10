@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-09" />
+  <meta name="dcterms.date" content="2026-11-10" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
   <title>Using it</title>
   <style>
@@ -150,7 +150,11 @@ class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Image-data identity of TIFF-family raws, TIFFs and JPEGs (not DNGs).</span></span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// The block-marks identity.</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> block_marks<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">/// Keep the file&#39;s skeleton in the result.</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> skeleton<span class="op">:</span> <span class="dt">bool</span><span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>The whole-file SHA-256 is always computed. <code>identify</code>
 returns <code>Result&lt;Identity&gt;</code>:</p>
 <div class="sourceCode" id="cb3"><pre
@@ -163,9 +167,11 @@ class="sourceCode rust"><code class="sourceCode rust"><span id="cb3-1"><a href="
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> preserved_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> dng_semantic_profile<span class="op">:</span> Outcome<span class="op">,</span>   <span class="co">// Ok(profile) of the accepting grammar</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> image_data_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> block_marks_sha256<span class="op">:</span> Outcome<span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> skeleton<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="pp">skeleton::</span>Skeleton<span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;,</span>   <span class="co">// not serialized</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">pub</span> metadata_json<span class="op">:</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">&gt;,</span>   <span class="co">// not serialized</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">type</span> Outcome <span class="op">=</span> <span class="dt">Option</span><span class="op">&lt;</span><span class="dt">Result</span><span class="op">&lt;</span><span class="dt">String</span><span class="op">,</span> <span class="dt">String</span><span class="op">&gt;&gt;;</span></span></code></pre></div>
 <p><code>Outcome</code> has three states: <code>None</code> when the
 identity was not attempted, <code>Some(Ok(value))</code>, and
 <code>Some(Err(reason))</code> when it failed or does not apply. The
@@ -228,26 +234,33 @@ class="sourceCode ocaml"><code class="sourceCode ocaml"><span id="cb6-1"><a href
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  preserved : outcome;</span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  metadata_record : <span class="dt">string</span> <span class="dt">option</span>;</span>
 <span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  image_data : outcome;</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span>; image_data : <span class="dt">bool</span> }</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  block_marks : outcome;</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  skeleton : (stored, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">option</span>;</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="kw">and</span> stored = { record : <span class="dt">string</span>; packed : <span class="dt">string</span> }</span>
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_candidate : <span class="dt">string</span> -&gt; <span class="dt">bool</span></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_prefix_len : <span class="dt">int</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_not_applicable : <span class="dt">string</span></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_dng : <span class="dt">string</span></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
-<p><code>all</code> requests every identity, <code>image_data</code>
-included, and leaves <code>compact_record</code> off. A request field
-that the linked library does not support, such as <code>metadata</code>
-without the <code>metadata</code> feature, comes back as
-<code>Failed "built without the metadata feature"</code>, not as
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> request = { dng_raw_blocks : <span class="dt">bool</span>; lightroom : <span class="dt">bool</span>; metadata : <span class="dt">bool</span>;</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>                 dng_semantic : <span class="dt">bool</span>; compact_record : <span class="dt">bool</span>; image_data : <span class="dt">bool</span>;</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>                 block_marks : <span class="dt">bool</span>; skeleton : <span class="dt">bool</span> }</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> all : request</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> skeleton : sha256:<span class="dt">string</span> -&gt; <span class="dt">string</span> -&gt; outcome * (stored, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">option</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> no_skeleton_walker : <span class="dt">string</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_candidate : <span class="dt">string</span> -&gt; <span class="dt">bool</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_prefix_len : <span class="dt">int</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_not_applicable : <span class="dt">string</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> image_data_dng : <span class="dt">string</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> version : <span class="dt">unit</span> -&gt; <span class="dt">string</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> backend : <span class="dt">string</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> recommended_workers : <span class="dt">unit</span> -&gt; <span class="dt">int</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify : ?request:request -&gt; <span class="dt">string</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="kw">val</span> identify_all : ?request:request -&gt; workers:<span class="dt">int</span> -&gt; <span class="dt">string</span> <span class="dt">list</span> -&gt; (identity, <span class="dt">string</span>) <span class="dt">result</span> <span class="dt">list</span></span></code></pre></div>
+<p><code>all</code> requests every identity, <code>image_data</code> and
+<code>block_marks</code> included, and leaves
+<code>compact_record</code> and <code>skeleton</code> off. A request
+field that the linked library does not support, such as
+<code>metadata</code> without the <code>metadata</code> feature, comes
+back as <code>Failed "built without the metadata feature"</code>, not as
 <code>Not_attempted</code>.</p>
 <p><code>dng_semantic = true</code> runs the tiffgraph walk and, when it
 succeeds, the preserved digest over its region.
@@ -278,18 +291,16 @@ capped at <code>recommended_workers ()</code>.</p>
 class="header-section-number">5.3</span> The phidentify command</h2>
 <p>The OCaml package installs <code>phidentify [-j N] FILE...</code>. It
 prints one tab-separated line per file, in argument order:</p>
-<pre class="text"><code>path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved</code></pre>
+<pre class="text"><code>path  sha256  dng_raw_blocks  lightroom  metadata  dng_semantic  preserved  image_data  block_marks</code></pre>
 <p>Each identity column is the value, <code>-</code> when not attempted,
 or <code>!reason</code> when it failed. The command never requests the
-metadata identity, so that column is always <code>-</code>. It does not
-print the image-data identity; use the library, or the Rust
-<code>identify</code> example, for that. A file that cannot be
-identified at all gets a two-column line, <code>path</code>, then
-<code>!reason</code>. <code>-j N</code> sets the number of workers; the
-default is <code>recommended_workers ()</code>.</p>
+metadata identity, so that column is always <code>-</code>. A file that
+cannot be identified at all gets a two-column line, <code>path</code>,
+then <code>!reason</code>. <code>-j N</code> sets the number of workers;
+the default is <code>recommended_workers ()</code>.</p>
 <p>On the same synthetic text file and TIFF:</p>
-<pre class="text"><code>notes.txt  c5e496e7…  -                          -  -  !not TIFF            -
-tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -</code></pre>
+<pre class="text"><code>notes.txt  c5e496e7…  -                          -  -  !not TIFF            -  !not a TIFF-family file or JPEG  !no skeleton walker for this format
+tiny.tif   5b8de6f0…  !TIFF offset outside file  -  -  !missing DNGVersion  -  !no image data in TIFF           !no blocks</code></pre>
 <h2 data-number="5.4" id="the-c-abi"><span
 class="header-section-number">5.4</span> The C ABI</h2>
 <div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_DNG_BLOCKS </span><span class="dv">1</span><span class="bu">u</span></span>
@@ -297,11 +308,16 @@ class="header-section-number">5.4</span> The C ABI</h2>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_METADATA </span><span class="dv">4</span><span class="bu">u</span></span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_COMPACT_RECORD </span><span class="dv">8</span><span class="bu">u</span></span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_IMAGE_DATA </span><span class="dv">16</span><span class="bu">u</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_BLOCK_MARKS </span><span class="dv">32</span><span class="bu">u</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define PHIDENTIFY_SKELETON </span><span class="dv">64</span><span class="bu">u</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_identify<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span> <span class="dt">uint32_t</span> flags<span class="op">,</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint64_t</span> <span class="op">*</span>regions<span class="op">,</span> <span class="dt">size_t</span> n_regions<span class="op">,</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_skeleton<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>path<span class="op">,</span> <span class="dt">size_t</span> path_len<span class="op">,</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>sha256<span class="op">,</span> <span class="dt">size_t</span> sha256_len<span class="op">,</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>                            <span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="dt">int32_t</span> phidentify_version<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">**</span>out<span class="op">,</span> <span class="dt">size_t</span> <span class="op">*</span>out_len<span class="op">);</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> phidentify_free<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> len<span class="op">);</span></span></code></pre></div>
 <p><code>path</code> is a byte string of <code>path_len</code> bytes,
 not NUL-terminated. <code>regions</code> holds <code>n_regions</code>
 pairs of <code>(offset, length)</code>, or is <code>NULL</code> when no
@@ -333,17 +349,26 @@ preserved digest is wanted.</p>
 </tr>
 </tbody>
 </table>
-<p>With status 0, <code>out</code> holds seven fields separated by NUL
+<p>With status 0, <code>out</code> holds ten fields separated by NUL
 bytes, in this order: sha256, DNG raw blocks, Lightroom digest, metadata
-digest, preserved digest, metadata record JSON, image data. The
-image-data field is filled only when <code>PHIDENTIFY_IMAGE_DATA</code>
-(16) is set in <code>flags</code>; it was added as the seventh field so
-that the first six keep their places. Each field is
+digest, preserved digest, metadata record JSON, image data, block marks,
+skeleton record JSON, packed skeleton in hex. The image-data field is
+filled only when <code>PHIDENTIFY_IMAGE_DATA</code> (16) is set in
+<code>flags</code>, block marks only with
+<code>PHIDENTIFY_BLOCK_MARKS</code> (32), and the two skeleton fields
+only with <code>PHIDENTIFY_SKELETON</code> (64). New fields are added at
+the end, so that earlier ones keep their places; a caller built against
+seven fields must be rebuilt. Each field is
 <code>ok:&lt;value&gt;</code>, <code>err:&lt;reason&gt;</code>, or empty
 when not attempted. Free every <code>out</code> buffer exactly once with
 <code>phidentify_free(out, out_len)</code>.</p>
+<p><code>phidentify_skeleton</code> returns the last three of those
+fields (block marks, skeleton record, packed skeleton) for a file whose
+content has the given SHA-256. It reads the file’s structures only,
+never the whole file, and is for adding block marks and a skeleton to a
+file that was identified earlier.</p>
 <p><code>phidentify_version</code> returns a string such as
-<code>phidentify 0.2.0 +lightroom +metadata</code>, naming the features
+<code>phidentify 0.3.0 +lightroom +metadata</code>, naming the features
 the library was built with.</p>
 </body>
 </html>

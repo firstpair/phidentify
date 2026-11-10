@@ -5,9 +5,9 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-11-09" />
+  <meta name="dcterms.date" content="2026-11-10" />
   <meta name="description" content="A manual for phidentify, which computes separate, named identities for photo files (whole-file SHA-256, DNG encoded raw blocks, the image data of other camera raws, TIFFs and JPEGs, the Lightroom Classic original fingerprint, a metadata record and the preserved complement digest) from Rust, C, OCaml and OxCaml." />
-  <title>Reference</title>
+  <title>Licences</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -47,109 +47,29 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-019.html" accesskey="n" rel="next">Reference</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-017.html" accesskey="p" rel="previous">Licences</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-017.html" accesskey="p" rel="previous">Testing</a>
 </span>
 </div>
 </nav>
-<h1 data-number="17" id="reference"><span
-class="header-section-number">17</span> Reference</h1>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Item</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Version</td>
-<td>0.2.0</td>
-</tr>
-<tr>
-<td>Rust</td>
-<td>1.99.0, edition 2024, <code>unsafe</code> forbidden in the core</td>
-</tr>
-<tr>
-<td>OCaml</td>
-<td>5.1 or later, stock OCaml (<code>Domain.spawn</code>) or OxCaml
-(<code>Domain.Safe.spawn</code>)</td>
-</tr>
-<tr>
-<td>In-memory limit</td>
-<td>1 GiB; larger files get SHA-256, the DNG semantic walk from disk and
-the metadata record</td>
-</tr>
-<tr>
-<td>Raw-block domain</td>
-<td><code>PHIDENTIFY-DNG-ENCODED-RAW-BLOCKS-1\0</code></td>
-</tr>
-<tr>
-<td>Image-data domain</td>
-<td><code>PHIDENTIFY-IMAGE-DATA-1\0</code></td>
-</tr>
-<tr>
-<td>Image-data prefix</td>
-<td><code>image_data::PREFIX_LEN</code> = 16 bytes;
-<code>candidate</code> accepts <code>FF D8 FF</code>,
-<code>FUJIFILMCCD-RAW</code>, <code>II</code>, <code>MM</code></td>
-</tr>
-<tr>
-<td>Image-data reasons</td>
-<td><code>NOT_APPLICABLE</code> =
-<code>not a TIFF-family file or JPEG</code>; <code>DNG</code> =
-<code>DNG: the raw-block identity applies instead</code></td>
-</tr>
-<tr>
-<td>Preserved domain</td>
-<td><code>SDE/0-preserved\0</code></td>
-</tr>
-<tr>
-<td>Lightroom engine revision</td>
-<td><code>native-original-digest-v5</code></td>
-</tr>
-<tr>
-<td>Maximum XMP packet for the walk</td>
-<td>1 MiB</td>
-</tr>
-<tr>
-<td>C ABI flags</td>
-<td><code>DNG_BLOCKS</code> 1, <code>LIGHTROOM</code> 2,
-<code>METADATA</code> 4, <code>COMPACT_RECORD</code> 8,
-<code>IMAGE_DATA</code> 16</td>
-</tr>
-<tr>
-<td>C ABI field order</td>
-<td>sha256, raw blocks, Lightroom, metadata digest, preserved, metadata
-record, image data</td>
-</tr>
-<tr>
-<td>Rust features</td>
-<td><code>lightroom</code> (default), <code>semantic</code> (default),
-<code>metadata</code></td>
-</tr>
-<tr>
-<td>Source</td>
-<td><a
-href="https://github.com/firstpair/phidentify">github.com/firstpair/phidentify</a></td>
-</tr>
-<tr>
-<td>Sister projects</td>
-<td><a href="https://github.com/firstpair/dng-compare">dng-compare</a>,
-<a href="https://github.com/firstpair/tiffgraph">tiffgraph</a>, <a
-href="https://github.com/querygraph/semantic-unison">Semantic
-Unison</a></td>
-</tr>
-<tr>
-<td>Indexer</td>
-<td><a href="https://github.com/firstpair/phindex">phindex</a></td>
-</tr>
-</tbody>
-</table>
+<h1 data-number="17" id="licences"><span
+class="header-section-number">17</span> Licences</h1>
+<p>The phidentify source is MIT. Builds link third-party code under
+other licences:</p>
+<ul>
+<li>The default <code>lightroom</code> feature links rawler 0.8.0, under
+LGPL-2.1.</li>
+<li>The default <code>semantic</code> feature links tiffgraph’s Rust
+crate, under MIT.</li>
+<li>The optional <code>metadata</code> feature links exiftool-rs through
+dng-compare’s <code>dng-exiftool-ffi</code>, under GPL-3.0-or-later. A
+binary built with it is covered by the GPL. dng-compare’s
+<code>rust-scanner/exiftool-ffi/THIRD-PARTY.md</code> lists the
+notices.</li>
+</ul>
+<p>A build without <code>lightroom</code> and <code>metadata</code>
+links only MIT and permissively licensed crates.</p>
 </body>
 </html>
